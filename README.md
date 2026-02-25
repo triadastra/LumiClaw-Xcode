@@ -14,6 +14,7 @@ Agents can read and write files, run shell commands, search the web, control the
 - Streaming agentic loop: AI plans → calls tools → feeds results back → repeats until done
 - 60+ built-in tools across files, shell, web, git, clipboard, screen control, memory, and system
 - Per-agent security policy: risk thresholds, command blacklist, sudo toggle, auto-approve level
+<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 45 56 PM" src="https://github.com/user-attachments/assets/7aeb50c5-e4dc-43a0-85d9-ddeaa6ffb25f" />
 
 **macOS integration**
 - Global hotkeys for a command palette and quick-action panel, available in any app
@@ -22,12 +23,14 @@ Agents can read and write files, run shell commands, search the web, control the
 - Automation rules triggered by app launch, schedule, Bluetooth, screen unlock, and more
 - Optional desktop control: mouse, keyboard, screenshots, AppleScript
 
+
 **iOS companion**
 - Full chat interface with streaming responses
 - Bonjour discovery and TCP pairing with the Mac
 - USB device detection via IOKit
 - Remote Mac control: screenshots, shell commands, volume
 - Syncs agents, conversations, automations, and API keys from Mac
+<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 47 09 PM" src="https://github.com/user-attachments/assets/e465de38-bc70-48b0-8486-4a71276042ae" />
 
 **Voice**
 - Push-to-talk transcription via OpenAI Whisper
