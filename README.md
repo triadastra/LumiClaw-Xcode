@@ -1,5 +1,6 @@
-<img width="64" height="64" alt="icon_32x32@2x" src="https://github.com/user-attachments/assets/fd72077f-0790-47cf-a22b-a7345ee53806" /><h1>Lumi Agent</h1>
-
+<img src="https://github.com/user-attachments/assets/fd72077f-0790-47cf-a22b-a7345ee53806" width="64" height="64" align="left" alt="Lumi Agent Icon" />
+<h1>&nbsp;Lumi Agent</h1>
+<br clear="left"/>
 
 A macOS-first AI agent platform with tool execution, desktop automation, and an iOS companion app.
 
