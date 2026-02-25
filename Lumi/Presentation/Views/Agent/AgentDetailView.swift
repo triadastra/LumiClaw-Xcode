@@ -200,6 +200,7 @@ private struct EditForm: View {
 
     @State private var availableModels: [String] = []
     @State private var loadingModels = false
+    @State private var ollamaUnreachable = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -221,25 +222,54 @@ private struct EditForm: View {
                         .onChange(of: draft.configuration.provider) {
                             draft.configuration.model =
                                 AppConfig.defaultModels[draft.configuration.provider] ?? ""
+                            ollamaUnreachable = false
                             fetchModels()
                         }
                     }
 
                     LabeledField("Model") {
                         HStack(spacing: 8) {
-                            if availableModels.isEmpty {
+                            if loadingModels {
                                 TextField("Model name", text: $draft.configuration.model)
                                     .textFieldStyle(.roundedBorder)
-                            } else {
+                                    .disabled(true)
+                                ProgressView().scaleEffect(0.7)
+                            } else if !availableModels.isEmpty {
                                 Picker("Model", selection: $draft.configuration.model) {
                                     ForEach(availableModels, id: \.self) { m in
                                         Text(m).tag(m)
                                     }
                                 }
+                                if draft.configuration.provider == .ollama {
+                                    Button {
+                                        fetchModels()
+                                    } label: {
+                                        Image(systemName: "arrow.clockwise")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(.secondary)
+                                    .help("Refresh models from Ollama")
+                                }
+                            } else if ollamaUnreachable {
+                                TextField("Model name", text: $draft.configuration.model)
+                                    .textFieldStyle(.roundedBorder)
+                                Button {
+                                    fetchModels()
+                                } label: {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.orange)
+                                .help("Ollama unreachable — tap to retry")
+                            } else {
+                                TextField("Model name", text: $draft.configuration.model)
+                                    .textFieldStyle(.roundedBorder)
                             }
-                            if loadingModels {
-                                ProgressView().scaleEffect(0.7)
-                            }
+                        }
+                        if ollamaUnreachable && !loadingModels {
+                            Text("Ollama server not reachable. Is it running?")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
                         }
                     }
 
@@ -354,21 +384,34 @@ private struct EditForm: View {
 
     private func fetchModels() {
         let provider = draft.configuration.provider
-        availableModels = provider.defaultModels  // show fallback immediately
-        guard provider == .ollama else { return }
+        guard provider == .ollama else {
+            availableModels = provider.defaultModels
+            ollamaUnreachable = false
+            return
+        }
+        // For Ollama: always fetch live — never show preset list
+        availableModels = []
+        ollamaUnreachable = false
         loadingModels = true
         Task {
             let repo = AIProviderRepository()
-            if let live = try? await repo.getAvailableModels(provider: provider), !live.isEmpty {
+            do {
+                let live = try await repo.getAvailableModels(provider: provider)
                 await MainActor.run {
                     availableModels = live
-                    // Keep current model if it's in the list, otherwise reset to first
+                    ollamaUnreachable = live.isEmpty
                     if !live.contains(draft.configuration.model) {
                         draft.configuration.model = live.first ?? draft.configuration.model
                     }
+                    loadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    availableModels = []
+                    ollamaUnreachable = true
+                    loadingModels = false
                 }
             }
-            await MainActor.run { loadingModels = false }
         }
     }
 }

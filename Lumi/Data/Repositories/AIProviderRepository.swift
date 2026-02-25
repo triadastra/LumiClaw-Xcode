@@ -87,7 +87,7 @@ final class AIProviderRepository: AIProviderRepositoryProtocol {
         case .openai:    return provider.defaultModels
         case .anthropic: return provider.defaultModels
         case .gemini:    return provider.defaultModels
-        case .ollama:    return (try? await fetchOllamaModels()) ?? provider.defaultModels
+        case .ollama:    return try await fetchOllamaModels()
         }
     }
 
