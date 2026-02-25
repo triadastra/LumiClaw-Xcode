@@ -3,6 +3,7 @@
 A macOS-first AI agent platform with tool execution, desktop automation, and an iOS companion app.
 
 Agents can read and write files, run shell commands, search the web, control the desktop, execute code, and chain tool calls autonomously. The iOS app pairs over Wi-Fi or USB to provide a mobile chat interface and remote Mac control.
+<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 44 24 PM" src="https://github.com/user-attachments/assets/6a6784ee-ad2e-4597-b888-6582e93155d9" />
 
 ---
 
