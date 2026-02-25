@@ -1,0 +1,187 @@
+════════════════════════════════════════════════════════════════════════════════
+                     iOS BUILD ERRORS - COMPLETE FIX
+════════════════════════════════════════════════════════════════════════════════
+
+FILE: /Users/osmond/Lumi/LumiAgent/App/iOSMainView.swift
+
+Apply these 3 fixes in order:
+
+════════════════════════════════════════════════════════════════════════════════
+FIX #1: Line 107 - Temperature Double Unwrapping
+════════════════════════════════════════════════════════════════════════════════
+
+FIND (line 107):
+LabeledContent("Temperature", value: agent.configuration.temperature)
+
+REPLACE WITH:
+LabeledContent("Temperature", value: String(format: "%.1f", agent.configuration.temperature))
+
+WHY: LabeledContent on iOS requires String, not Optional<Double>
+
+════════════════════════════════════════════════════════════════════════════════
+FIX #2: Line 145 - Conversation Title String Unwrapping
+════════════════════════════════════════════════════════════════════════════════
+
+FIND (line 145):
+Text(conversation.title)
+
+REPLACE WITH:
+Text(conversation.title ?? "Conversation")
+
+WHY: conversation.title is Optional<String>, must be unwrapped
+
+════════════════════════════════════════════════════════════════════════════════
+FIX #3: Line 218 - Color Type for iOS
+════════════════════════════════════════════════════════════════════════════════
+
+FIND (line 218):
+.background(message.role == .user ? Color.blue : Color(.systemGray5))
+
+REPLACE WITH:
+.background(message.role == .user ? Color.blue : Color(uiColor: .systemGray5))
+
+WHY: iOS uses UIColor, so Color(uiColor: .systemGray5) not Color(.systemGray5)
+
+════════════════════════════════════════════════════════════════════════════════
+                           STEP-BY-STEP IN XCODE
+════════════════════════════════════════════════════════════════════════════════
+
+1. Open file: /Users/osmond/Lumi/LumiAgent/App/iOSMainView.swift
+
+2. Press ⌘F (Find & Replace)
+
+3. Search for each "FIND" string above and replace with the corresponding
+   "REPLACE WITH" text
+
+4. Save file (⌘S)
+
+5. Clean build folder (⌘⇧K)
+
+6. Build project (⌘B)
+
+════════════════════════════════════════════════════════════════════════════════
+                         AUTOMATED FIND & REPLACE
+════════════════════════════════════════════════════════════════════════════════
+
+In Xcode, press ⌘⌥F to open Find & Replace across the project:
+
+Search:    Color\(.systemGray5\)
+Replace:   Color(uiColor: .systemGray5)
+Scope:     iOSMainView.swift only
+Click:     Replace All
+
+Then manually fix lines 107 and 145 using the exact text above.
+
+════════════════════════════════════════════════════════════════════════════════
+                    COMPLETE CORRECTED CODE SECTIONS
+════════════════════════════════════════════════════════════════════════════════
+
+If you prefer to copy-paste entire sections, here they are:
+
+───────────────────────────────────────────────────────────────────────────────
+Section 1: iOSAgentDetailView (lines ~95-130)
+───────────────────────────────────────────────────────────────────────────────
+
+struct iOSAgentDetailView: View {
+    let agent: Agent
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        List {
+            Section("Configuration") {
+                LabeledContent("Provider", value: agent.configuration.provider.rawValue)
+                LabeledContent("Model", value: agent.configuration.model)
+                LabeledContent("Temperature", value: String(format: "%.1f", agent.configuration.temperature))
+            }
+            
+            Section("System Prompt") {
+                if let prompt = agent.configuration.systemPrompt {
+                    Text(prompt)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("No system prompt")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Section {
+                Text("⚠️ Tool execution is only available on macOS")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Text("To use tools like file operations, terminal commands, and system automation, please use LumiAgent on your Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Tools")
+            }
+        }
+        .navigationTitle(agent.name)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+───────────────────────────────────────────────────────────────────────────────
+Section 2: iOSConversationsView title fix (around line 145)
+───────────────────────────────────────────────────────────────────────────────
+
+In the ForEach loop, change:
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(conversation.title ?? "Conversation")
+                            .font(.headline)
+
+───────────────────────────────────────────────────────────────────────────────
+Section 3: MessageBubble (lines ~210-245)
+───────────────────────────────────────────────────────────────────────────────
+
+struct MessageBubble: View {
+    let message: SpaceMessage
+    
+    var body: some View {
+        HStack {
+            if message.role == .user {
+                Spacer()
+            }
+            
+            VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
+                Text(message.content)
+                    .padding(12)
+                    .background(message.role == .user ? Color.blue : Color(uiColor: .systemGray5))
+                    .foregroundColor(message.role == .user ? .white : .primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                
+                if message.isStreaming {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                }
+            }
+            
+            if message.role != .user {
+                Spacer()
+            }
+        }
+    }
+}
+
+════════════════════════════════════════════════════════════════════════════════
+                              VERIFICATION
+════════════════════════════════════════════════════════════════════════════════
+
+After applying all fixes:
+
+1. Clean Build Folder: ⌘⇧K
+2. Build: ⌘B
+3. Expected result: Build Succeeded ✅
+
+If still errors, compare your file line-by-line with the sections above.
+
+════════════════════════════════════════════════════════════════════════════════
+                         WHAT WAS ALSO FIXED
+════════════════════════════════════════════════════════════════════════════════
+
+SystemPermissionManager.swift - Added #if os(macOS) guards
+✅ Now wrapped in platform check so iOS build ignores it
+
+════════════════════════════════════════════════════════════════════════════════
