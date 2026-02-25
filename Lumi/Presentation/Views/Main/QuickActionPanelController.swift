@@ -41,9 +41,7 @@ func isIWorkApp() -> Bool {
     let workspace = NSWorkspace.shared
     if let frontmost = workspace.frontmostApplication {
         let bundleId = frontmost.bundleIdentifier ?? ""
-        let isMatch = iworkBundleIds.contains(bundleId)
-        print("[AppDetect] Frontmost: \(frontmost.localizedName ?? "unknown") (\(bundleId)) - iWork: \(isMatch)")
-        return isMatch
+        return iworkBundleIds.contains(bundleId)
     }
     return false
 }

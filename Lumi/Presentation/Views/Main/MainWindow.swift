@@ -41,25 +41,20 @@ struct MainWindow: View {
             // Sidebar
             SidebarView()
                 .frame(minWidth: 200)
-                .background(.ultraThinMaterial.opacity(0.5))
         } content: {
             // Content (list view)
             ContentListView()
                 .frame(minWidth: 300)
-                .background(.ultraThickMaterial.opacity(0.8))
         } detail: {
             // Detail view
             DetailView()
                 .frame(minWidth: 400)
-                .background(.ultraThickMaterial)
         }
         .navigationTitle("Lumi Agent")
         .background(
-            ZStack {
-                Color.black.opacity(0.35)
-                VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-            }
-            .ignoresSafeArea()
+            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+                .overlay(Color.black.opacity(0.08))
+                .ignoresSafeArea()
         )
         .toolbar {
             if appState.selectedSidebarItem == .agentSpace {
@@ -897,9 +892,10 @@ struct NewAgentView: View {
 
     @State private var name: String = ""
     @State private var provider: AIProvider = .ollama
-    @State private var model: String = AppConfig.defaultModels[.ollama] ?? "llama3.2:latest"
-    @State private var availableModels: [String] = AIProvider.ollama.defaultModels
+    @State private var model: String = AppConfig.defaultModels[.ollama] ?? ""
+    @State private var availableModels: [String] = []
     @State private var loadingModels = false
+    @State private var ollamaUnreachable = false
     @FocusState private var focusedField: Field?
 
     enum Field { case name }
@@ -917,21 +913,65 @@ struct NewAgentView: View {
                 }
                 .onChange(of: provider) {
                     model = AppConfig.defaultModels[provider] ?? ""
+                    ollamaUnreachable = false
                     fetchModels()
                 }
 
                 HStack(spacing: 8) {
-                    if availableModels.isEmpty {
+                    if loadingModels {
                         TextField("Model", text: $model)
-                    } else {
+                            .disabled(true)
+                        ProgressView().scaleEffect(0.7)
+                    } else if !availableModels.isEmpty {
                         Picker("Model", selection: $model) {
                             ForEach(availableModels, id: \.self) { m in
                                 Text(m).tag(m)
                             }
                         }
+                        if provider == .ollama {
+                            Button {
+                                fetchModels()
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .help("Refresh models from Ollama")
+                        }
+                    } else if provider == .ollama && ollamaUnreachable {
+                        TextField("Model", text: $model)
+                        Button {
+                            fetchModels()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.orange)
+                        .help("Ollama unreachable — tap to retry")
+                    } else {
+                        TextField("Model", text: $model)
                     }
-                    if loadingModels {
-                        ProgressView().scaleEffect(0.7)
+                }
+                
+                if provider == .ollama && ollamaUnreachable && !loadingModels {
+                    HStack {
+                        Text("Ollama server not reachable.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        
+                        Button {
+                            AIProviderRepository().launchOllama()
+                            // Small delay to let it start, then retry
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                fetchModels()
+                            }
+                        } label: {
+                            Text("Launch Ollama")
+                                .font(.caption).fontWeight(.bold)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(.orange)
                     }
                 }
             }
@@ -946,12 +986,12 @@ struct NewAgentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty)
+                .disabled(name.isEmpty || (provider == .ollama && availableModels.isEmpty && model.isEmpty))
             }
             .padding()
         }
         .padding()
-        .frame(width: 500, height: 280)
+        .frame(width: 500, height: 300)
         .onAppear {
             focusedField = .name
             fetchModels()
@@ -959,18 +999,36 @@ struct NewAgentView: View {
     }
 
     private func fetchModels() {
-        availableModels = provider.defaultModels
-        guard provider == .ollama else { return }
+        let currentProvider = provider
+        guard currentProvider == .ollama else {
+            availableModels = currentProvider.defaultModels
+            ollamaUnreachable = false
+            return
+        }
+        
+        // For Ollama: always fetch live — never show preset list
+        availableModels = []
+        ollamaUnreachable = false
         loadingModels = true
+        
         Task {
             let repo = AIProviderRepository()
-            if let live = try? await repo.getAvailableModels(provider: .ollama), !live.isEmpty {
+            do {
+                let live = try await repo.getAvailableModels(provider: .ollama)
                 await MainActor.run {
-                    availableModels = live
-                    if !live.contains(model) { model = live.first ?? model }
+                    self.availableModels = live
+                    self.ollamaUnreachable = live.isEmpty
+                    if !live.isEmpty && !live.contains(model) {
+                        self.model = live.first ?? model
+                    }
+                    self.loadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.ollamaUnreachable = true
+                    self.loadingModels = false
                 }
             }
-            await MainActor.run { loadingModels = false }
         }
     }
 

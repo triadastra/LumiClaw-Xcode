@@ -94,7 +94,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.bar)
+        .background(.ultraThinMaterial)
     }
 
     @ViewBuilder
@@ -377,7 +377,7 @@ struct MessageBubble: View {
             } else {
                 MarkdownMessageView(text: message.content, agents: allAgents)
                     .textSelection(.enabled)
-                    .background(Color.secondary.opacity(0.12))
+                    .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
@@ -466,7 +466,7 @@ struct CodeBlockView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .background(Color.black.opacity(0.07))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
@@ -528,7 +528,7 @@ struct TypingIndicator: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.secondary.opacity(0.12))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onAppear { phase = true }
     }
@@ -600,7 +600,7 @@ struct MessageInputView: View {
                         }
                     }
                 }
-                .background(.bar)
+                .background(.ultraThinMaterial)
 
                 Divider()
             }
@@ -676,7 +676,7 @@ struct MessageInputView: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(.bar)
+        .background(.ultraThinMaterial)
     }
 
     private var voiceStatusText: String {

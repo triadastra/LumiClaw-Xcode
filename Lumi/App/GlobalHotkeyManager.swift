@@ -183,4 +183,26 @@ final class GlobalHotkeyManager {
         if let ref = hotKeyRef2  { UnregisterEventHotKey(ref); hotKeyRef2 = nil }
     }
 }
+#else
+import Foundation
+
+final class GlobalHotkeyManager {
+    static let shared = GlobalHotkeyManager()
+    private init() {}
+    var onActivate: (() -> Void)?
+    var onActivate2: (() -> Void)?
+    var onActivate3: (() -> Void)?
+    var onActivate4: (() -> Void)?
+    var onActivate5: (() -> Void)?
+    var onActivate6: (() -> Void)?
+    func register(keyCode: UInt32 = 0, modifiers: UInt32 = 0) {}
+    func registerSecondary(keyCode: UInt32 = 0, modifiers: UInt32 = 0) {}
+    func registerTertiary(keyCode: UInt32 = 0, modifiers: UInt32 = 0) {}
+    func registerQuaternary(keyCode: UInt32, modifiers: UInt32) {}
+    func registerFifth(keyCode: UInt32, modifiers: UInt32) {}
+    func registerSixth(keyCode: UInt32, modifiers: UInt32) {}
+    func unregister() {}
+    func unregisterAll() {}
+    func unregisterSecondary() {}
+}
 #endif

@@ -16,10 +16,10 @@ import ApplicationServices
 #endif
 
 // MARK: - Screen Control Tool Names
-// Tool names that visually change the screen — a screenshot is sent to the AI after these.
+// Tool names that imply active desktop control.
 private let screenControlToolNames: Set<String> = [
     "open_application", "click_mouse", "scroll_mouse",
-    "type_text", "press_key", "run_applescript", "take_screenshot"
+    "type_text", "press_key"
 ]
 
 // MARK: - App State
@@ -38,8 +38,23 @@ final class AppState: ObservableObject {
     @AppStorage("settings.defaultExteriorAgentId") private var defaultAgentIdString = ""
 
     var defaultExteriorAgentId: UUID? {
-        get { UUID(uuidString: defaultAgentIdString) }
-        set { defaultAgentIdString = newValue?.uuidString ?? "" }
+        get { 
+            if DatabaseManager.shared.isCloudEnabled {
+                NSUbiquitousKeyValueStore.default.synchronize()
+                if let cloudId = NSUbiquitousKeyValueStore.default.string(forKey: "settings.defaultExteriorAgentId") {
+                    return UUID(uuidString: cloudId)
+                }
+            }
+            return UUID(uuidString: defaultAgentIdString) 
+        }
+        set { 
+            let idString = newValue?.uuidString ?? ""
+            defaultAgentIdString = idString
+            if DatabaseManager.shared.isCloudEnabled {
+                NSUbiquitousKeyValueStore.default.set(idString, forKey: "settings.defaultExteriorAgentId")
+                NSUbiquitousKeyValueStore.default.synchronize()
+            }
+        }
     }
 
     func isDefaultAgent(_ id: UUID) -> Bool {
@@ -55,7 +70,26 @@ final class AppState: ObservableObject {
         didSet { saveConversations() }
     }
     @Published var selectedConversationId: UUID?
-    @AppStorage("settings.hotkeyConversationId") var hotkeyConversationIdString = ""
+    @AppStorage("settings.hotkeyConversationId") private var hotkeyConversationIdStringStored = ""
+    
+    var hotkeyConversationIdString: String {
+        get {
+            if DatabaseManager.shared.isCloudEnabled {
+                NSUbiquitousKeyValueStore.default.synchronize()
+                if let cloudId = NSUbiquitousKeyValueStore.default.string(forKey: "settings.hotkeyConversationId") {
+                    return cloudId
+                }
+            }
+            return hotkeyConversationIdStringStored
+        }
+        set {
+            hotkeyConversationIdStringStored = newValue
+            if DatabaseManager.shared.isCloudEnabled {
+                NSUbiquitousKeyValueStore.default.set(newValue, forKey: "settings.hotkeyConversationId")
+                NSUbiquitousKeyValueStore.default.synchronize()
+            }
+        }
+    }
 
     // MARK: - Tool Call History
     @Published var toolCallHistory: [ToolCallRecord] = []
@@ -81,8 +115,8 @@ final class AppState: ObservableObject {
     @AppStorage("settings.enableGlobalHotkeys") var enableGlobalHotkeys = true
 
     // MARK: - Private Storage
-    private let conversationsKey = "lumiagent.conversations"
-    private let automationsKey   = "lumiagent.automations"
+    private let conversationsFileName = "conversations.json"
+    private let automationsFileName   = "automations.json"
 
     #if os(macOS)
     var automationEngine: AutomationEngine?
@@ -91,37 +125,53 @@ final class AppState: ObservableObject {
     // MARK: - Init
 
     init() {
-        print("🚀 AppState init started")
         Self.shared = self
-        print("📦 Initializing DatabaseManager")
         _ = DatabaseManager.shared
-        print("👥 Loading Agents")
+        
         loadAgents()
-        print("💬 Loading Conversations")
         loadConversations()
-        print("🤖 Loading Automations")
         loadAutomations()
         
         #if os(macOS)
-        print("🖥️ Starting macOS async setup")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            print("⌨️ Setting up Global Hotkeys")
             self.setupGlobalHotkey()
-            print("⚙️ Starting Automation Engine")
             self.startAutomationEngine()
             
             self.hotkeyRefreshObserver = NotificationCenter.default.addObserver(
                 forName: .lumiGlobalHotkeysPreferenceChanged,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
-                self?.refreshGlobalHotkeys()
+            ) { _ in
+                AppState.shared?.refreshGlobalHotkeys()
             }
-            print("✅ AppState macOS setup complete")
+            
+            // Listen for iCloud KVS changes
+            NotificationCenter.default.addObserver(
+                forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+                object: NSUbiquitousKeyValueStore.default,
+                queue: .main
+            ) { [weak self] _ in
+                self?.handleCloudKVSChange()
+            }
+            
+            // Listen for iCloud status changes (migration complete)
+            NotificationCenter.default.addObserver(
+                forName: .lumiICloudStatusChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadAgents()
+                self?.loadConversations()
+                self?.loadAutomations()
+            }
         }
         #endif
-        print("🚀 AppState init finished")
+    }
+    
+    private func handleCloudKVSChange() {
+        // Refresh local UI if cloud data changed
+        objectWillChange.send()
     }
 
     // MARK: - Command Palette Message (Shared)
@@ -165,14 +215,23 @@ final class AppState: ObservableObject {
     }
 
     private func loadAutomations() {
-        guard let data = UserDefaults.standard.data(forKey: automationsKey),
-              let saved = try? JSONDecoder().decode([AutomationRule].self, from: data) else { return }
-        automations = saved
+        // Try migration from legacy UserDefaults if file doesn't exist
+        do {
+            let db = DatabaseManager.shared
+            automations = try db.load([AutomationRule].self, from: automationsFileName, default: {
+                if let legacyData = UserDefaults.standard.data(forKey: "lumiagent.automations"),
+                   let legacy = try? JSONDecoder().decode([AutomationRule].self, from: legacyData) {
+                    return legacy
+                }
+                return []
+            }())
+        } catch {
+            print("Error loading automations: \(error)")
+        }
     }
 
     private func saveAutomations() {
-        guard let data = try? JSONEncoder().encode(automations) else { return }
-        UserDefaults.standard.set(data, forKey: automationsKey)
+        try? DatabaseManager.shared.save(automations, to: automationsFileName)
     }
 
     // MARK: - Tool Call History
@@ -261,14 +320,22 @@ final class AppState: ObservableObject {
     // MARK: - Conversation Management
 
     private func loadConversations() {
-        guard let data = UserDefaults.standard.data(forKey: conversationsKey),
-              let saved = try? JSONDecoder().decode([Conversation].self, from: data) else { return }
-        conversations = saved
+        do {
+            let db = DatabaseManager.shared
+            conversations = try db.load([Conversation].self, from: conversationsFileName, default: {
+                if let legacyData = UserDefaults.standard.data(forKey: "lumiagent.conversations"),
+                   let legacy = try? JSONDecoder().decode([Conversation].self, from: legacyData) {
+                    return legacy
+                }
+                return []
+            }())
+        } catch {
+            print("Error loading conversations: \(error)")
+        }
     }
 
     private func saveConversations() {
-        guard let data = try? JSONEncoder().encode(conversations) else { return }
-        UserDefaults.standard.set(data, forKey: conversationsKey)
+        try? DatabaseManager.shared.save(conversations, to: conversationsFileName)
     }
 
     @discardableResult
@@ -423,8 +490,7 @@ final class AppState: ObservableObject {
                 EXAMPLE — "open Safari and go to apple.com":
                   Step 1 → call open_application("Safari")
                   Step 2 → call run_applescript to navigate to the URL
-                  Step 3 → call take_screenshot to verify
-                  Step 4 → respond with result.
+                  Step 3 → respond with result.
 
                 ═══ TOOL SELECTION GUIDE ═══
                 • Research / web data   → web_search, fetch_url
@@ -477,6 +543,11 @@ final class AppState: ObservableObject {
                   5. If still failing after 2 attempts → take_screenshot, re-read the full UI, pick a completely
                      different approach (e.g. keyboard shortcut, menu item, URL navigation).
                   6. Only after exhausting ALL automated approaches may you report that the action failed.
+
+                ═══ SCREENSHOT POLICY ═══
+                • Do NOT take screenshots by default after every step.
+                • Only use take_screenshot when visual verification is required or when recovery/debugging needs fresh UI context.
+                • If run_applescript/open_url already completes the task deterministically, finish without extra screenshot checks.
 
                 ═══ ABSOLUTE RULES ═══
                 1. NEVER tell the user to "manually" do anything — not clicking, typing, or any interaction.

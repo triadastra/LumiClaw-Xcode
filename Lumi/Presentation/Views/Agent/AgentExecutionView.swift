@@ -24,7 +24,7 @@ struct AgentExecutionView: View {
                 }
             }
             .padding()
-            .background(Color.secondary.opacity(0.08))
+            .background(.ultraThinMaterial)
 
             Divider()
 
@@ -50,7 +50,7 @@ struct AgentExecutionView: View {
                     }
                 }
             }
-            .background(Color.primary.opacity(0.03))
+            .background(.ultraThinMaterial.opacity(0.5))
             .font(.system(.body, design: .monospaced))
         }
     }

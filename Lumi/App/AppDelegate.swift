@@ -14,23 +14,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("✅ LumiAgent launched successfully")
-        print("📦 Bundle ID: \(Bundle.main.bundleIdentifier ?? "not set")")
-
+        
         // Configure app
         NSApp.setActivationPolicy(.regular)
         NSApp.servicesProvider = LumiServicesProvider.shared
         NSUpdateDynamicServices()
         NSApp.activate(ignoringOtherApps: true)
 
-        // Configure main window for glass look
-        if let window = NSApp.windows.first {
-            setupGlassWindow(window)
+        // Small delay to ensure the window is created by SwiftUI
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            for window in NSApp.windows {
+                if window.title == "Lumi Agent" || window.className.contains("Window") {
+                    self.setupGlassWindow(window)
+                }
+            }
         }
 
-        // Set up menu bar icon
         setupMenuBar()
 
-        // Start the iOS remote-control server.
         Task { @MainActor in
             MacRemoteServer.shared.start()
         }
@@ -77,5 +78,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Keep app running even if all windows closed
         return false
     }
+}
+#else
+import Foundation
+
+class AppDelegate: NSObject {
+    // iOS stubs
 }
 #endif

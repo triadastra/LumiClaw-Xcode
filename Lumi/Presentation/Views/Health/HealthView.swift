@@ -719,7 +719,8 @@ final class HealthKitManager: ObservableObject {
             model    = "gemini-3.1-pro"
         } else {
             provider = .ollama
-            model    = "llama3.2:latest"
+            let models = (try? await repo.getAvailableModels(provider: .ollama)) ?? []
+            model = models.first ?? "llama3.2:latest" // Use first local model, or fallback if none found
         }
 
         do {
@@ -1136,7 +1137,7 @@ struct HealthMetricCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.secondary.opacity(0.07))
+                .fill(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

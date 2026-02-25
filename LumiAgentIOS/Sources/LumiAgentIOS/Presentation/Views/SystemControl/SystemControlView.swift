@@ -25,7 +25,7 @@ public struct SystemControlView: View {
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 24) {
                     DeviceStatusCard(vm: vm)
                     BrightnessCard(vm: vm)
                     VolumeCard()
@@ -33,8 +33,8 @@ public struct SystemControlView: View {
                     WeatherCard(vm: vm)
                     MessagesCard(vm: vm)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Device Control")
@@ -46,6 +46,10 @@ public struct SystemControlView: View {
                         vm.refreshBrightness()
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .bold))
+                            .padding(8)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(Circle())
                     }
                 }
             }
@@ -65,11 +69,17 @@ private struct DeviceStatusCard: View {
 
     var body: some View {
         LumiCard {
-            HStack(spacing: 16) {
-                Image(systemName: vm.batteryIcon)
-                    .font(.title2)
-                    .foregroundStyle(batteryColor)
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .fill(batteryColor.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: vm.batteryIcon)
+                        .font(.title3)
+                        .foregroundStyle(batteryColor.gradient)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Battery")
                         .font(.headline)
                     Text(vm.batteryText)
@@ -78,12 +88,14 @@ private struct DeviceStatusCard: View {
                 }
                 Spacer()
                 // Brightness quick indicator
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 4) {
                     Image(systemName: "sun.max.fill")
-                        .foregroundStyle(.yellow)
-                    Text(String(format: "%.0f%%", vm.brightness * 100))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.yellow.gradient)
+                    Text(String(format: "%.0f%%", vm.brightness * 100))
+                        .font(.system(.callout, design: .rounded))
+                        .fontWeight(.bold)
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -94,7 +106,7 @@ private struct DeviceStatusCard: View {
         switch vm.batteryState {
         case .charging, .full: return .green
         default:
-            return vm.batteryLevel < 0.2 ? .red : (vm.batteryLevel < 0.4 ? .orange : .primary)
+            return vm.batteryLevel < 0.2 ? .red : (vm.batteryLevel < 0.4 ? .orange : .blue)
         }
     }
 }
@@ -106,24 +118,33 @@ private struct BrightnessCard: View {
 
     var body: some View {
         LumiCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 Label("Brightness", systemImage: "sun.max.fill")
                     .font(.headline)
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.yellow.gradient)
 
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     Image(systemName: "sun.min")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Slider(value: $vm.brightness, in: 0...1, step: 0.01)
                         .tint(.yellow)
                     Image(systemName: "sun.max")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
-                Text(String(format: "%.0f%%", vm.brightness * 100))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                HStack {
+                    Spacer()
+                    Text(String(format: "%.0f%%", vm.brightness * 100))
+                        .font(.system(.footnote, design: .rounded))
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.yellow.opacity(0.1))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.yellow)
+                }
             }
         }
     }
@@ -135,10 +156,10 @@ private struct BrightnessCard: View {
 private struct VolumeCard: View {
     var body: some View {
         LumiCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 Label("Volume", systemImage: "speaker.wave.2.fill")
                     .font(.headline)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.blue.gradient)
 
                 NativeVolumeSlider()
                     .frame(height: 32)
@@ -168,29 +189,30 @@ private struct MediaPlayerCard: View {
 
     var body: some View {
         LumiCard {
-            VStack(spacing: 14) {
+            VStack(spacing: 20) {
                 // Header
                 Label("Now Playing", systemImage: "music.note")
                     .font(.headline)
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(.purple.gradient)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Artwork + track info
-                HStack(spacing: 16) {
-                    Group {
+                HStack(spacing: 18) {
+                    ZStack {
                         if let artwork = vm.nowPlayingArtwork {
                             Image(uiImage: artwork)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                         } else {
+                            Color(.systemFill)
                             Image(systemName: "music.note.list")
                                 .font(.system(size: 28))
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .background(Color(.systemFill).clipShape(RoundedRectangle(cornerRadius: 8)))
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(vm.nowPlayingTitle ?? "Nothing Playing")
@@ -208,7 +230,7 @@ private struct MediaPlayerCard: View {
 
                 // Progress bar
                 if vm.playbackDuration > 0 {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         ProgressView(
                             value: vm.playbackPosition,
                             total: max(vm.playbackDuration, 1)
@@ -219,19 +241,20 @@ private struct MediaPlayerCard: View {
                             Spacer()
                             Text(formatTime(vm.playbackDuration))
                         }
-                        .font(.caption2)
+                        .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.secondary)
                     }
                 }
 
                 // Transport controls
-                HStack(spacing: 36) {
+                HStack(spacing: 44) {
                     Button { vm.previousTrack() } label: {
                         Image(systemName: "backward.fill").font(.title2)
                     }
                     Button { vm.togglePlayPause() } label: {
                         Image(systemName: vm.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 44))
+                            .font(.system(size: 52))
+                            .symbolRenderingMode(.hierarchical)
                     }
                     .foregroundStyle(.purple)
                     Button { vm.nextTrack() } label: {
@@ -258,12 +281,12 @@ private struct WeatherCard: View {
 
     var body: some View {
         LumiCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 // Header with location
                 HStack {
                     Label("Weather", systemImage: vm.weatherSFSymbol)
                         .font(.headline)
-                        .foregroundStyle(.cyan)
+                        .foregroundStyle(.cyan.gradient)
                     Spacer()
                     if vm.isLoadingWeather {
                         ProgressView().scaleEffect(0.8)
@@ -271,8 +294,9 @@ private struct WeatherCard: View {
                         Button {
                             vm.refreshWeather()
                         } label: {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(.secondary)
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary.opacity(0.5))
                         }
                     }
                 }
@@ -284,34 +308,43 @@ private struct WeatherCard: View {
                 } else {
                     // Main weather display
                     HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(vm.weatherTemperature)
-                                .font(.system(size: 40, weight: .semibold, design: .rounded))
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
                             Text(vm.weatherCondition)
-                                .font(.subheadline)
+                                .font(.headline)
                                 .foregroundStyle(.secondary)
                             if !vm.weatherLocation.isEmpty {
-                                Label(vm.weatherLocation, systemImage: "mappin.circle")
+                                Label(vm.weatherLocation, systemImage: "mappin.circle.fill")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.cyan)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.cyan.opacity(0.1))
+                                    .clipShape(Capsule())
                             }
                         }
                         Spacer()
                         Image(systemName: vm.weatherSFSymbol)
-                            .font(.system(size: 52))
+                            .font(.system(size: 64))
                             .symbolRenderingMode(.multicolor)
+                            .shadow(color: .cyan.opacity(0.2), radius: 10, x: 0, y: 5)
                     }
 
                     // Humidity + wind
-                    HStack(spacing: 24) {
+                    HStack(spacing: 32) {
                         WeatherStat(icon: "humidity.fill", label: "Humidity", value: vm.weatherHumidity, color: .blue)
                         WeatherStat(icon: "wind", label: "Wind", value: vm.weatherWindSpeed, color: .teal)
                     }
+                    .padding(.top, 4)
 
                     if let updated = vm.weatherLastUpdated {
                         Text("Updated \(updated.formatted(.relative(presentation: .named)))")
-                            .font(.caption2)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundStyle(.tertiary)
+                            .padding(.top, 4)
                     }
                 }
             }
@@ -326,13 +359,18 @@ private struct WeatherStat: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 18)
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.1))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(color)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 Text(label).font(.caption2).foregroundStyle(.secondary)
-                Text(value).font(.caption).fontWeight(.medium)
+                Text(value).font(.subheadline).fontWeight(.bold)
             }
         }
     }
@@ -347,35 +385,52 @@ private struct MessagesCard: View {
 
     var body: some View {
         LumiCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 Label("Messages & SMS", systemImage: "message.fill")
                     .font(.headline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.green.gradient)
 
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     TextField("Recipient (phone or email)", text: $recipient)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                         .keyboardType(.phonePad)
 
                     TextField("Message", text: $messageBody, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                         .lineLimit(3, reservesSpace: true)
                 }
 
                 HStack {
-                    Text("Compose opens system sheet for confirmation")
+                    Text("Compose opens system sheet")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Compose") {
+                    Button {
                         let targets = recipient
                             .components(separatedBy: CharacterSet(charactersIn: ",;"))
                             .map { $0.trimmingCharacters(in: .whitespaces) }
                             .filter { !$0.isEmpty }
                         vm.composeMessage(to: targets, body: messageBody)
+                    } label: {
+                        HStack {
+                            Text("Send")
+                            Image(systemName: "paperplane.fill")
+                        }
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(recipient.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.2) : Color.green)
+                        .foregroundColor(recipient.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .white)
+                        .clipShape(Capsule())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
                     .disabled(recipient.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -391,8 +446,9 @@ struct LumiCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(16)
+            .padding(20)
             .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 4)
     }
 }

@@ -46,6 +46,7 @@ struct SettingsView: View {
 
 extension Notification.Name {
     static let lumiGlobalHotkeysPreferenceChanged = Notification.Name("lumiGlobalHotkeysPreferenceChanged")
+    static let lumiICloudStatusChanged = Notification.Name("lumiICloudStatusChanged")
 }
 
 // MARK: - Permissions Tab
@@ -269,6 +270,11 @@ struct AccountTab: View {
     @AppStorage("account.joinedAt") private var joinedAt: Double = 0
     @AppStorage("preferences.newsletter") private var wantsUpdates = false
     @AppStorage("preferences.betaFeatures") private var betaFeatures = false
+    
+    @State private var isCloudEnabled = DatabaseManager.shared.isCloudEnabled
+    @State private var isMigrating = false
+    @State private var migrationError: String?
+    
     private var joinedDate: Date? { joinedAt > 0 ? Date(timeIntervalSince1970: joinedAt) : nil }
 
     var body: some View {
@@ -297,6 +303,33 @@ struct AccountTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            
+            Section("Cloud Synchronization") {
+                Toggle(isOn: $isCloudEnabled) {
+                    Label("Sync data via iCloud", systemImage: "icloud.fill")
+                }
+                .disabled(isMigrating)
+                .onChange(of: isCloudEnabled) {
+                    handleSyncChange()
+                }
+                
+                if isMigrating {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.7)
+                        Text("Migrating data...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let error = migrationError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                } else {
+                    Text("Syncs agents, conversations, and API keys across all your devices using your iCloud storage.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Section("Preferences") {
                 Toggle("Product updates by email", isOn: $wantsUpdates)
@@ -305,6 +338,30 @@ struct AccountTab: View {
         }
         .formStyle(.grouped)
         .onAppear { loadSystemAccount() }
+    }
+
+    private func handleSyncChange() {
+        isMigrating = true
+        migrationError = nil
+        
+        Task {
+            do {
+                if isCloudEnabled {
+                    try await DatabaseManager.shared.migrateToCloud()
+                } else {
+                    try await DatabaseManager.shared.migrateToLocal()
+                }
+                await MainActor.run {
+                    isMigrating = false
+                }
+            } catch {
+                await MainActor.run {
+                    isMigrating = false
+                    isCloudEnabled = !isCloudEnabled // Revert
+                    migrationError = error.localizedDescription
+                }
+            }
+        }
     }
 
     private func loadSystemAccount() {
@@ -511,9 +568,64 @@ struct APIKeysTab: View {
 struct IntegrationsTab: View {
     @AppStorage("settings.enableSystemServices") private var enableSystemServices = true
     @AppStorage("settings.enableGlobalHotkeys") private var enableGlobalHotkeys = true
+    @AppStorage("settings.ollamaURL") private var ollamaURL = AppConfig.defaultOllamaURL
+
+    @State private var ollamaStatus: Status = .checking
+    @State private var modelCount = 0
+
+    enum Status {
+        case checking, online, offline
+    }
 
     var body: some View {
         Form {
+            Section("Ollama Local Server") {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 10, height: 10)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(statusText).font(.headline)
+                        if ollamaStatus == .online {
+                            Text("\(modelCount) models available").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text(ollamaURL).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    if ollamaStatus == .offline {
+                        Button {
+                            AIProviderRepository().launchOllama()
+                            checkStatus()
+                        } label: {
+                            Text("Launch Ollama")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(.orange)
+                    }
+                    
+                    Button {
+                        checkStatus()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .disabled(ollamaStatus == .checking)
+                }
+                
+                if ollamaStatus == .offline {
+                    Text("Lumi requires the Ollama server to be running for local agent tasks. If you just launched it, wait a few seconds and refresh.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onAppear { checkStatus() }
+
             Section("macOS Services") {
                 Toggle("Enable Lumi Services", isOn: $enableSystemServices)
                 Text("Adds Lumi actions to the macOS Services menu for selected text and safe desktop cleanup.")
@@ -532,6 +644,40 @@ struct IntegrationsTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var statusText: String {
+        switch ollamaStatus {
+        case .checking: return "Checking Ollama..."
+        case .online:   return "Ollama is Online"
+        case .offline:  return "Ollama is Offline"
+        }
+    }
+
+    private var statusColor: Color {
+        switch ollamaStatus {
+        case .checking: return .gray
+        case .online:   return .green
+        case .offline:  return .red
+        }
+    }
+
+    private func checkStatus() {
+        ollamaStatus = .checking
+        Task {
+            let repo = AIProviderRepository()
+            do {
+                let models = try await repo.getAvailableModels(provider: .ollama)
+                await MainActor.run {
+                    self.modelCount = models.count
+                    self.ollamaStatus = .online
+                }
+            } catch {
+                await MainActor.run {
+                    self.ollamaStatus = .offline
+                }
+            }
+        }
     }
 }
 
@@ -719,7 +865,7 @@ struct FeatureCell: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.secondary.opacity(0.07))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

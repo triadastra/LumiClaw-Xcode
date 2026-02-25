@@ -115,7 +115,7 @@ struct ScreenControlHUDView: View {
         .frame(width: 320)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.97))
+                .fill(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.secondary.opacity(0.18), lineWidth: 1)

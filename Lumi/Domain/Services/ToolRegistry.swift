@@ -1509,4 +1509,31 @@ enum ToolError: Error, LocalizedError {
         }
     }
 }
+#else
+import Foundation
+
+struct RegisteredTool {
+    let name: String
+    let description: String
+    let category: ToolCategory
+    let riskLevel: RiskLevel
+}
+
+enum ToolCategory: String, CaseIterable {
+    case fileOperations, systemCommands, webSearch, codeExecution
+    case databaseAccess, networkRequests, git, textData
+    case clipboard, screenshot, screenControl, bluetooth, media
+
+    var displayName: String { rawValue }
+    var icon: String { "wrench" }
+}
+
+final class ToolRegistry {
+    static let shared = ToolRegistry()
+    private init() {}
+    func getAllTools() -> [RegisteredTool] { [] }
+    func getToolsForAI(enabledNames: [String] = []) -> [AITool] { [] }
+    func getToolsForAIWithoutDesktopControl() -> [AITool] { [] }
+    func getTool(named name: String) -> RegisteredTool? { nil }
+}
 #endif

@@ -10,26 +10,25 @@
 #if os(macOS)
 import AppKit
 import Foundation
+import Combine
 
 // MARK: - Automation Engine
 
 /// Monitors system events and fires automation rules when their trigger conditions are met.
+@MainActor
 final class AutomationEngine {
 
     /// Callback invoked on the main thread when a rule should fire.
     private let onFire: (AutomationRule) -> Void
 
     private var rules: [AutomationRule] = []
-    private var workspaceObservers: [NSObjectProtocol] = []
-    private var pollTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     private var connectedDevices: Set<String> = []
     private var lastScheduleCheckMinute: Int = -1
 
     init(onFire: @escaping (AutomationRule) -> Void) {
         self.onFire = onFire
     }
-
-    deinit { stop() }
 
     // MARK: - Public API
 
@@ -47,61 +46,57 @@ final class AutomationEngine {
     private func start() {
         let nc = NSWorkspace.shared.notificationCenter
 
-        workspaceObservers.append(
-            nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
-                           object: nil, queue: .main) { [weak self] note in
+        nc.publisher(for: NSWorkspace.didLaunchApplicationNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
                 guard let app = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication),
                       let name = app.localizedName else { return }
                 self?.handleAppEvent(name: name, launched: true)
             }
-        )
+            .store(in: &cancellables)
 
-        workspaceObservers.append(
-            nc.addObserver(forName: NSWorkspace.didTerminateApplicationNotification,
-                           object: nil, queue: .main) { [weak self] note in
+        nc.publisher(for: NSWorkspace.didTerminateApplicationNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
                 guard let app = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication),
                       let name = app.localizedName else { return }
                 self?.handleAppEvent(name: name, launched: false)
             }
-        )
+            .store(in: &cancellables)
 
-        workspaceObservers.append(
-            nc.addObserver(forName: NSWorkspace.screensDidWakeNotification,
-                           object: nil, queue: .main) { [weak self] _ in
+        nc.publisher(for: NSWorkspace.screensDidWakeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
                 self?.handleScreenUnlock()
             }
-        )
+            .store(in: &cancellables)
 
         // Snapshot current Bluetooth state in background
-        Task.detached(priority: .background) { [weak self] in
-            let devices = Self.currentBluetoothDevices()
-            await MainActor.run { [weak self] in
-                self?.connectedDevices = devices
-            }
+        Task {
+            let devices = await Task.detached(priority: .background) {
+                return Self.currentBluetoothDevices()
+            }.value
+            self.connectedDevices = devices
         }
 
         // 15-second polling timer for Bluetooth diffs and schedule checks
-        let t = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            Task.detached(priority: .background) { [weak self] in
+        Timer.publish(every: 15, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
                 guard let self = self else { return }
-                let current = Self.currentBluetoothDevices()
-                await MainActor.run { [weak self] in
-                    self?.handleBluetoothUpdate(current)
-                    self?.checkSchedules()
+                Task {
+                    let current = await Task.detached(priority: .background) {
+                        return Self.currentBluetoothDevices()
+                    }.value
+                    self.handleBluetoothUpdate(current)
+                    self.checkSchedules()
                 }
             }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        pollTimer = t
+            .store(in: &cancellables)
     }
 
     func stop() {
-        let nc = NSWorkspace.shared.notificationCenter
-        for obs in workspaceObservers { nc.removeObserver(obs) }
-        workspaceObservers.removeAll()
-        pollTimer?.invalidate()
-        pollTimer = nil
+        cancellables.removeAll()
     }
 
     private func restart() {
@@ -198,7 +193,7 @@ final class AutomationEngine {
 
     // MARK: - System Queries
 
-    private static func currentBluetoothDevices() -> Set<String> {
+    nonisolated private static func currentBluetoothDevices() -> Set<String> {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
         proc.arguments = ["SPBluetoothDataType", "-json"]
@@ -222,5 +217,15 @@ final class AutomationEngine {
         }
         return names
     }
+}
+#else
+import Foundation
+
+@MainActor
+final class AutomationEngine {
+    init(onFire: @escaping (AutomationRule) -> Void) {}
+    func update(rules: [AutomationRule]) {}
+    func runManually(_ rule: AutomationRule) {}
+    func stop() {}
 }
 #endif

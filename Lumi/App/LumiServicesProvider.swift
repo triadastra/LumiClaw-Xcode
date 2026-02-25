@@ -91,4 +91,10 @@ final class LumiServicesProvider: NSObject {
         error.pointee = (failure ?? "Text transformation failed.") as NSString
     }
 }
+#else
+import Foundation
+
+final class LumiServicesProvider: NSObject {
+    static let shared = LumiServicesProvider()
+}
 #endif

@@ -14,7 +14,7 @@ import SwiftUI
 struct iOSMainView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab = 0
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. Agents List
@@ -25,7 +25,7 @@ struct iOSMainView: View {
                 Label("Agents", systemImage: "cpu")
             }
             .tag(0)
-            
+
             // 2. Chat Space
             NavigationStack {
                 iOSConversationsView()
@@ -34,7 +34,7 @@ struct iOSMainView: View {
                 Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
             }
             .tag(1)
-            
+
             // 3. Remote Control
             NavigationStack {
                 iOSRemoteControlView()
@@ -43,7 +43,7 @@ struct iOSMainView: View {
                 Label("Remote", systemImage: "desktopcomputer")
             }
             .tag(2)
-            
+
             // 4. Settings
             NavigationStack {
                 iOSSettingsView()
@@ -63,80 +63,81 @@ struct iOSAgentListView: View {
     @EnvironmentObject var appState: AppState
     @State private var showingNewAgent = false
     @State private var searchText = ""
-    
+
     var filteredAgents: [Agent] {
         if searchText.isEmpty { return appState.agents }
         return appState.agents.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
-    
+
     var body: some View {
-        List {
+        Group {
             if appState.agents.isEmpty {
-                VStack(spacing: 20) {
-                    Spacer()
-                    Image(systemName: "cpu")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.secondary)
-                    Text("No Agents Yet")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                ContentUnavailableView {
+                    Label("No Agents Yet", systemImage: "cpu")
+                } description: {
                     Text("Create an AI agent to start automating tasks or chatting.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                } actions: {
                     Button("Create First Agent") {
                         showingNewAgent = true
                     }
                     .buttonStyle(.borderedProminent)
-                    Spacer()
+                    .controlSize(.large)
                 }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             } else {
-                Section {
-                    ForEach(filteredAgents) { agent in
-                        NavigationLink(destination: iOSAgentDetailView(agent: agent)) {
-                            HStack(spacing: 14) {
-                                Circle()
-                                    .fill(agent.avatarColor)
-                                    .frame(width: 44, height: 44)
-                                    .overlay(
-                                        Text(agent.name.prefix(1))
+                List {
+                    Section {
+                        ForEach(filteredAgents) { agent in
+                            NavigationLink(destination: iOSAgentDetailView(agent: agent)) {
+                                HStack(spacing: 16) {
+                                    Circle()
+                                        .fill(agent.avatarColor.gradient)
+                                        .frame(width: 50, height: 50)
+                                        .overlay(
+                                            Text(agent.name.prefix(1))
+                                                .font(.title3)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                        )
+                                        .shadow(color: agent.avatarColor.opacity(0.3), radius: 4, x: 0, y: 2)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(agent.name)
                                             .font(.headline)
-                                            .foregroundColor(.white)
-                                    )
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(agent.name)
-                                        .font(.headline)
-                                    Text("\(agent.configuration.provider.rawValue) · \(agent.configuration.model)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        Text("\(agent.configuration.provider.rawValue) · \(agent.configuration.model)")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if appState.isDefaultAgent(agent.id) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(.yellow)
+                                            .padding(6)
+                                            .background(Color.yellow.opacity(0.1))
+                                            .clipShape(Circle())
+                                    }
                                 }
-                                
-                                Spacer()
-                                
-                                if appState.isDefaultAgent(agent.id) {
-                                    Image(systemName: "star.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.yellow)
-                                }
+                                .padding(.vertical, 6)
                             }
-                            .padding(.vertical, 4)
                         }
+                        .onDelete(perform: deleteAgents)
+                    } header: {
+                        Text("My Agents")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.primary)
+                            .textCase(nil)
+                    } footer: {
+                        Text("The starred agent is your primary assistant for shortcuts.")
+                            .padding(.top, 4)
                     }
-                    .onDelete(perform: deleteAgents)
-                } header: {
-                    Text("My Agents")
-                } footer: {
-                    Text("The starred agent is your primary assistant for shortcuts.")
                 }
+                .listStyle(.insetGrouped)
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search agents")
             }
         }
         .navigationTitle("Lumi Agents")
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search agents")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -144,6 +145,7 @@ struct iOSAgentListView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title3)
+                        .symbolRenderingMode(.hierarchical)
                 }
             }
         }
@@ -151,7 +153,7 @@ struct iOSAgentListView: View {
             iOSNewAgentView()
         }
     }
-    
+
     private func deleteAgents(at offsets: IndexSet) {
         for index in offsets {
             let id = filteredAgents[index].id
@@ -166,67 +168,105 @@ struct iOSAgentDetailView: View {
     let agent: Agent
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
         List {
             Section {
-                HStack(spacing: 16) {
+                VStack(spacing: 16) {
                     Circle()
-                        .fill(agent.avatarColor)
-                        .frame(width: 60, height: 60)
+                        .fill(agent.avatarColor.gradient)
+                        .frame(width: 80, height: 80)
                         .overlay(
                             Text(agent.name.prefix(1))
-                                .font(.title)
-                                .fontWeight(.bold)
+                                .font(.system(size: 32, weight: .black))
                                 .foregroundColor(.white)
                         )
-                    
-                    VStack(alignment: .leading, spacing: 4) {
+                        .shadow(color: agent.avatarColor.opacity(0.4), radius: 8, x: 0, y: 4)
+
+                    VStack(spacing: 4) {
                         Text(agent.name)
-                            .font(.title2)
-                            .fontWeight(.bold)
+                            .font(.title.bold())
                         Text("Powered by \(agent.configuration.provider.rawValue)")
-                            .font(.subheadline)
+                            .font(.headline)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
             }
-            
+            .listRowBackground(Color.clear)
+
+            Section {
+                HStack {
+                    Button {
+                        appState.createDM(agentId: agent.id)
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: "message.fill")
+                                .font(.title2)
+                            Text("Message")
+                                .font(.caption.bold())
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        if appState.isDefaultAgent(agent.id) {
+                            appState.setDefaultAgent(nil)
+                        } else {
+                            appState.setDefaultAgent(agent.id)
+                        }
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: appState.isDefaultAgent(agent.id) ? "star.fill" : "star")
+                                .font(.title2)
+                            Text(appState.isDefaultAgent(agent.id) ? "Primary" : "Set Primary")
+                                .font(.caption.bold())
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(appState.isDefaultAgent(agent.id) ? Color.yellow.opacity(0.1) : Color.gray.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(appState.isDefaultAgent(agent.id) ? .yellow : .primary)
+                }
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+
             Section("Settings") {
-                LabeledContent("Model", value: agent.configuration.model)
-                LabeledContent("Temperature", value: String(format: "%.2f", agent.configuration.temperature ?? 0.7))
-                LabeledContent("Primary Agent", value: appState.isDefaultAgent(agent.id) ? "Yes" : "No")
-            }
-            
-            if let prompt = agent.configuration.systemPrompt, !prompt.isEmpty {
-                Section("System Prompt") {
-                    Text(prompt)
-                        .font(.subheadline)
+                LabeledContent {
+                    Text(agent.configuration.model)
+                        .foregroundStyle(.primary)
+                } label: {
+                    Label("Model", systemImage: "cube.fill")
+                        .foregroundStyle(.secondary)
+                }
+                
+                LabeledContent {
+                    Text(String(format: "%.2f", agent.configuration.temperature ?? 0.7))
+                        .foregroundStyle(.primary)
+                } label: {
+                    Label("Temperature", systemImage: "thermometer.medium")
                         .foregroundStyle(.secondary)
                 }
             }
-            
-            Section {
-                Button {
-                    appState.createDM(agentId: agent.id)
-                } label: {
-                    Label("Message \(agent.name)", systemImage: "message.fill")
+
+            if let prompt = agent.configuration.systemPrompt, !prompt.isEmpty {
+                Section("System Prompt") {
+                    Text(prompt)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(4)
+                        .padding(.vertical, 4)
                 }
-                
-                Button {
-                    if appState.isDefaultAgent(agent.id) {
-                        appState.setDefaultAgent(nil)
-                    } else {
-                        appState.setDefaultAgent(agent.id)
-                    }
-                } label: {
-                    Label(appState.isDefaultAgent(agent.id) ? "Remove as Primary" : "Set as Primary", 
-                          systemImage: appState.isDefaultAgent(agent.id) ? "star.slash.fill" : "star.fill")
-                }
-                .foregroundStyle(appState.isDefaultAgent(agent.id) ? .orange : .blue)
             }
-            
+
             Section {
                 Button(role: .destructive) {
                     appState.deleteAgent(id: agent.id)
@@ -235,34 +275,22 @@ struct iOSAgentDetailView: View {
                     Label("Delete Agent", systemImage: "trash")
                 }
             }
-            
+
             Section {
-                Text("⚠️ Limited Capabilities on iOS")
-                    .font(.headline)
-                    .foregroundStyle(.orange)
-                Text("Advanced tools like terminal commands, local file system mastery, and real-time screen control are only available on macOS. This mobile agent can chat and use web-based research tools.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Platform Constraints")
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Platform Constraints", systemImage: "exclamationmark.triangle.fill")
+                        .font(.headline)
+                        .foregroundStyle(.orange)
+                    Text("Advanced tools like terminal commands, local file system mastery, and real-time screen control are only available on macOS. This mobile agent can chat and use web-based research tools.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+                }
+                .padding(.vertical, 4)
             }
         }
         .navigationTitle("Agent Details")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    if appState.isDefaultAgent(agent.id) {
-                        appState.setDefaultAgent(nil)
-                    } else {
-                        appState.setDefaultAgent(agent.id)
-                    }
-                } label: {
-                    Image(systemName: appState.isDefaultAgent(agent.id) ? "star.fill" : "star")
-                        .foregroundStyle(appState.isDefaultAgent(agent.id) ? .yellow : .blue)
-                }
-            }
-        }
     }
 }
 
@@ -271,57 +299,50 @@ struct iOSAgentDetailView: View {
 struct iOSConversationsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showingNewChat = false
-    
+
     var body: some View {
-        List {
+        Group {
             if appState.conversations.isEmpty {
-                VStack(spacing: 20) {
-                    Spacer()
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.secondary)
-                    Text("No Conversations")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                ContentUnavailableView {
+                    Label("No Conversations", systemImage: "bubble.left.and.bubble.right")
+                } description: {
                     Text("Start a new chat with one of your agents.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                } actions: {
                     Button("Start First Chat") {
                         showingNewChat = true
                     }
                     .buttonStyle(.borderedProminent)
-                    Spacer()
+                    .controlSize(.large)
                 }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             } else {
-                ForEach(appState.conversations) { conversation in
-                    NavigationLink(destination: iOSChatView(conversationId: conversation.id)) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(conversation.title ?? "Conversation")
-                                    .font(.headline)
-                                    .lineLimit(1)
-                                Spacer()
-                                Text(conversation.updatedAt, style: .time)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                List {
+                    ForEach(appState.conversations) { conversation in
+                        NavigationLink(destination: iOSChatView(conversationId: conversation.id)) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(conversation.title ?? "Conversation")
+                                        .font(.headline)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(conversation.updatedAt, style: .time)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+
+                                if let lastMsg = conversation.messages.last {
+                                    Text(lastMsg.content)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                        .lineSpacing(2)
+                                }
                             }
-                            
-                            if let lastMsg = conversation.messages.last {
-                                Text(lastMsg.content)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
+                            .padding(.vertical, 8)
                         }
-                        .padding(.vertical, 4)
                     }
+                    .onDelete(perform: deleteConversations)
                 }
-                .onDelete(perform: deleteConversations)
+                .listStyle(.insetGrouped)
             }
         }
         .navigationTitle("Chat Space")
@@ -331,6 +352,7 @@ struct iOSConversationsView: View {
                     showingNewChat = true
                 } label: {
                     Image(systemName: "square.and.pencil")
+                        .font(.title3)
                 }
             }
         }
@@ -338,7 +360,7 @@ struct iOSConversationsView: View {
             iOSNewConversationView()
         }
     }
-    
+
     private func deleteConversations(at offsets: IndexSet) {
         for index in offsets {
             let id = appState.conversations[index].id
@@ -349,75 +371,97 @@ struct iOSConversationsView: View {
 
 // MARK: - Chat Interface
 
+private let chatBottomID = "chatBottom"
+
 struct iOSChatView: View {
     let conversationId: UUID
     @EnvironmentObject var appState: AppState
     @State private var inputText = ""
-    @Namespace private var bottomID
-    
+
     var conversation: Conversation? {
         appState.conversations.first { $0.id == conversationId }
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 20) {
                         if let conv = conversation {
-                            ForEach(conv.messages) { message in
-                                iOSMessageBubble(message: message)
-                                    .id(message.id)
+                            if conv.messages.isEmpty {
+                                VStack(spacing: 16) {
+                                    Image(systemName: "bubble.left.and.bubble.right")
+                                        .font(.system(size: 60))
+                                        .foregroundStyle(.tertiary)
+                                    Text("Start the conversation")
+                                        .font(.headline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 100)
+                            } else {
+                                ForEach(conv.messages) { message in
+                                    iOSMessageBubble(message: message)
+                                        .id(message.id)
+                                }
                             }
                         }
-                        Color.clear.frame(height: 1).id(bottomID)
+                        Color.clear.frame(height: 1).id(chatBottomID)
                     }
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
                 }
                 .onChange(of: conversation?.messages.count) {
                     withAnimation {
-                        proxy.scrollTo(bottomID, anchor: .bottom)
+                        proxy.scrollTo(chatBottomID, anchor: .bottom)
                     }
                 }
                 .onChange(of: (conversation?.messages.last?.content.count ?? 0)) {
-                    // Follow streaming content
-                    proxy.scrollTo(bottomID, anchor: .bottom)
+                    proxy.scrollTo(chatBottomID, anchor: .bottom)
+                }
+                .onAppear {
+                    proxy.scrollTo(chatBottomID, anchor: .bottom)
                 }
             }
-            
+
             Divider()
-            
+
             // Input Area
             HStack(alignment: .bottom, spacing: 12) {
                 Button {
                     // Future: Add Image attachment for vision
                 } label: {
                     Image(systemName: "plus")
-                        .font(.title3)
+                        .font(.title3.bold())
                         .foregroundStyle(.blue)
-                        .padding(8)
+                        .padding(10)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
                 }
-                
+
                 TextField("Message", text: $inputText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     .lineLimit(1...6)
-                
+
                 if !inputText.isEmpty {
                     Button {
                         sendMessage()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.system(size: 36))
                             .foregroundStyle(.blue)
                     }
                     .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(.background)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
         }
         .navigationTitle(conversation?.title ?? "Chat")
         .navigationBarTitleDisplayMode(.inline)
@@ -425,13 +469,13 @@ struct iOSChatView: View {
             if appState.isAgentControllingScreen {
                 ToolbarItem(placement: .topBarTrailing) {
                     Label("Active on Mac", systemImage: "desktopcomputer")
-                        .font(.caption)
+                        .font(.caption.bold())
                         .foregroundStyle(.green)
                 }
             }
         }
     }
-    
+
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -443,66 +487,69 @@ struct iOSChatView: View {
 struct iOSMessageBubble: View {
     let message: SpaceMessage
     @EnvironmentObject var appState: AppState
-    
+
     var agent: Agent? {
         guard let id = message.agentId else { return nil }
         return appState.agents.first { $0.id == id }
     }
-    
+
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: 10) {
             if message.role == .agent {
                 Circle()
-                    .fill(agent?.avatarColor ?? .purple)
-                    .frame(width: 30, height: 30)
+                    .fill(agent?.avatarColor.gradient ?? Color.purple.gradient)
+                    .frame(width: 32, height: 32)
                     .overlay(
                         Text(agent?.name.prefix(1) ?? "L")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 14, weight: .black))
                             .foregroundColor(.white)
                     )
+                    .shadow(radius: 1)
             } else {
-                Spacer(minLength: 40)
+                Spacer(minLength: 60)
             }
-            
+
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
                 if message.role == .agent {
                     Text(agent?.name ?? "Lumi Agent")
                         .font(.caption2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.bold)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 4)
                 }
-                
+
                 Text(message.content)
                     .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(message.role == .user ? Color.blue : Color(uiColor: .secondarySystemBackground))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(message.role == .user ? Color.blue.gradient : Color(uiColor: .secondarySystemBackground).gradient)
                     .foregroundColor(message.role == .user ? .white : .primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+
                 if message.isStreaming {
                     HStack(spacing: 4) {
-                        Circle().fill(.secondary).frame(width: 4, height: 4)
-                        Circle().fill(.secondary).frame(width: 4, height: 4)
-                        Circle().fill(.secondary).frame(width: 4, height: 4)
+                        Circle().fill(.secondary).frame(width: 5, height: 5)
+                        Circle().fill(.secondary).frame(width: 5, height: 5)
+                        Circle().fill(.secondary).frame(width: 5, height: 5)
                     }
-                    .padding(.leading, 8)
+                    .padding(.leading, 12)
+                    .padding(.top, 4)
                     .opacity(0.6)
                 }
             }
-            
+
             if message.role == .user {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
-                    .frame(width: 30, height: 30)
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "person.fill")
                             .font(.system(size: 14))
                             .foregroundColor(.blue)
                     )
             } else {
-                Spacer(minLength: 40)
+                Spacer(minLength: 60)
             }
         }
     }
@@ -512,41 +559,54 @@ struct iOSMessageBubble: View {
 
 struct iOSRemoteControlView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         List {
             Section {
-                VStack(spacing: 16) {
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 50))
-                        .foregroundStyle(.blue)
-                    Text("Remote Control")
-                        .font(.headline)
-                    Text("LumiAgent can discover and control your Mac running the desktop app. Ensure both devices are on the same Wi-Fi.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                VStack(spacing: 20) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                            .frame(width: 100, height: 100)
+                        Image(systemName: "desktopcomputer")
+                            .font(.system(size: 50))
+                            .foregroundStyle(.blue.gradient)
+                    }
+                    
+                    VStack(spacing: 8) {
+                        Text("Remote Control")
+                            .font(.title2.bold())
+                        Text("LumiAgent can discover and control your Mac running the desktop app. Ensure both devices are on the same Wi-Fi.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical)
+                .padding(.vertical, 24)
             }
-            
+            .listRowBackground(Color.clear)
+
             Section("Nearby Devices") {
-                HStack {
-                    ProgressView().scaleEffect(0.8)
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.small)
                     Text("Scanning for Macs...")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 4)
             }
-            
-            Section("What can I do?") {
+
+            Section("Capabilities") {
                 Label("View Mac Screen", systemImage: "camera.viewfinder")
                 Label("Type & Press Keys", systemImage: "keyboard")
                 Label("Run Terminal Commands", systemImage: "terminal")
                 Label("Execute AppleScript", systemImage: "applescript")
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Mac Remote")
     }
 }
@@ -555,31 +615,38 @@ struct iOSRemoteControlView: View {
 
 struct iOSSettingsView: View {
     @EnvironmentObject var appState: AppState
-    
+
     var body: some View {
         List {
-            Section("AI Providers") {
-                NavigationLink("Configure API Keys") {
+            Section {
+                NavigationLink {
                     iOSAPIKeysView()
+                } label: {
+                    Label("Configure AI Providers", systemImage: "key.fill")
+                        .foregroundStyle(.blue)
                 }
+            } header: {
+                Text("Connection")
             }
-            
-            Section("About") {
+
+            Section {
                 HStack {
-                    Text("Version")
+                    Label("Version", systemImage: "info.circle")
                     Spacer()
                     Text(AppConfig.version)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 HStack {
-                    Text("Build")
+                    Label("Build", systemImage: "hammer.fill")
                     Spacer()
                     Text(AppConfig.buildNumber)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("About")
             }
-            
+
             Section {
                 Link(destination: URL(string: "https://lumiagent.com")!) {
                     Label("Official Website", systemImage: "safari")
@@ -589,6 +656,7 @@ struct iOSSettingsView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Settings")
     }
 }
@@ -596,38 +664,49 @@ struct iOSSettingsView: View {
 struct iOSAPIKeysView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage("settings.ollamaURL") private var ollamaURL = AppConfig.defaultOllamaURL
-    
+
     @State private var openAIKey = ""
     @State private var anthropicKey = ""
     @State private var geminiKey = ""
-    
+
     var body: some View {
         Form {
-            Section("OpenAI") {
+            Section {
                 SecureField("sk-...", text: $openAIKey)
                 Button("Save OpenAI Key") { saveKey(openAIKey, for: .openai) }
+                    .disabled(openAIKey.isEmpty)
+            } header: {
+                Label("OpenAI", systemImage: "sparkles")
             }
-            
-            Section("Anthropic") {
+
+            Section {
                 SecureField("sk-ant-...", text: $anthropicKey)
                 Button("Save Anthropic Key") { saveKey(anthropicKey, for: .anthropic) }
+                    .disabled(anthropicKey.isEmpty)
+            } header: {
+                Label("Anthropic", systemImage: "bird")
             }
-            
-            Section("Google Gemini") {
+
+            Section {
                 SecureField("Key...", text: $geminiKey)
                 Button("Save Gemini Key") { saveKey(geminiKey, for: .gemini) }
+                    .disabled(geminiKey.isEmpty)
+            } header: {
+                Label("Google Gemini", systemImage: "moon.stars.fill")
             }
-            
-            Section("Ollama (Local AI)") {
-                TextField("http://localhost:11434", text: $ollamaURL)
-                Text("Ensure your local server is reachable from this device.")
+
+            Section {
+                TextField("http://127.0.0.1:11434", text: $ollamaURL)
+                Text("Ensure your local server is reachable from this device. Use your Mac's IP address if running on device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                Label("Ollama (Local AI)", systemImage: "laptopcomputer")
             }
         }
         .navigationTitle("API Keys")
     }
-    
+
     private func saveKey(_ key: String, for provider: AIProvider) {
         let repo = AIProviderRepository()
         try? repo.setAPIKey(key, for: provider)
@@ -639,20 +718,20 @@ struct iOSAPIKeysView: View {
 struct iOSNewAgentView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
-    
+
     @State private var name = ""
     @State private var provider: AIProvider = .openai
-    @State private var model = "gpt-4o"
+    @State private var model = ""
     @State private var prompt = ""
-    
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Basic Info") {
+                Section("Agent Identity") {
                     TextField("Agent Name", text: $name)
                 }
-                
-                Section("AI Provider") {
+
+                Section("Intelligence") {
                     Picker("Provider", selection: $provider) {
                         ForEach(AIProvider.allCases, id: \.self) { p in
                             Text(p.rawValue).tag(p)
@@ -661,13 +740,13 @@ struct iOSNewAgentView: View {
                     .onChange(of: provider) {
                         model = provider.defaultModels.first ?? ""
                     }
-                    
-                    TextField("Model", text: $model)
+
+                    TextField("Model Name", text: $model)
                 }
-                
-                Section("Personality") {
+
+                Section("Personality & Instructions") {
                     TextEditor(text: $prompt)
-                        .frame(minHeight: 100)
+                        .frame(minHeight: 120)
                 }
             }
             .navigationTitle("New Agent")
@@ -681,12 +760,18 @@ struct iOSNewAgentView: View {
                         createAgent()
                         dismiss()
                     }
+                    .fontWeight(.bold)
                     .disabled(name.isEmpty || model.isEmpty)
                 }
             }
         }
+        .onAppear {
+            if model.isEmpty {
+                model = provider.defaultModels.first ?? ""
+            }
+        }
     }
-    
+
     private func createAgent() {
         let agent = Agent(
             name: name,
@@ -709,27 +794,40 @@ struct iOSNewConversationView: View {
     @Environment(\.dismiss) var dismiss
     @State private var selectedAgentIds: Set<UUID> = []
     @State private var title = ""
-    
+
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Group Title (Optional)", text: $title)
+                Section("Group Info") {
+                    TextField("Title (Optional)", text: $title)
                 }
-                
-                Section("Select Agents") {
+
+                Section("Select Participants") {
                     if appState.agents.isEmpty {
                         Text("No agents available. Create one first.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(appState.agents) { agent in
-                            Toggle(agent.name, isOn: Binding(
+                            Toggle(isOn: Binding(
                                 get: { selectedAgentIds.contains(agent.id) },
                                 set: { isOn in
                                     if isOn { selectedAgentIds.insert(agent.id) }
                                     else { selectedAgentIds.remove(agent.id) }
                                 }
-                            ))
+                            )) {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(agent.avatarColor.gradient)
+                                        .frame(width: 32, height: 32)
+                                        .overlay(
+                                            Text(agent.name.prefix(1))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.white)
+                                        )
+                                    Text(agent.name)
+                                        .font(.body)
+                                }
+                            }
                         }
                     }
                 }
@@ -745,12 +843,13 @@ struct iOSNewConversationView: View {
                         createConversation()
                         dismiss()
                     }
+                    .fontWeight(.bold)
                     .disabled(selectedAgentIds.isEmpty)
                 }
             }
         }
     }
-    
+
     private func createConversation() {
         let agentIds = Array(selectedAgentIds)
         if agentIds.count == 1 {

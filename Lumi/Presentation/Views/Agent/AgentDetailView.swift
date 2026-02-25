@@ -146,7 +146,7 @@ private struct ReadOnlyView: View {
                                 .font(.body)
                                 .padding(8)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color.secondary.opacity(0.1))
+                                .background(.ultraThinMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                     }
@@ -267,9 +267,24 @@ private struct EditForm: View {
                             }
                         }
                         if ollamaUnreachable && !loadingModels {
-                            Text("Ollama server not reachable. Is it running?")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
+                            HStack {
+                                Text("Ollama unreachable.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                
+                                Button {
+                                    AIProviderRepository().launchOllama()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                        fetchModels()
+                                    }
+                                } label: {
+                                    Text("Launch Ollama")
+                                        .font(.caption).fontWeight(.bold)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .tint(.orange)
+                            }
                         }
                     }
 
@@ -332,7 +347,7 @@ private struct EditForm: View {
                         .frame(minHeight: 80)
                         .scrollContentBackground(.hidden)
                         .padding(6)
-                        .background(Color.secondary.opacity(0.1))
+                        .background(.ultraThinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }

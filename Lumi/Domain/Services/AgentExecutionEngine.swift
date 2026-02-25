@@ -16,7 +16,6 @@ import Combine
 /// Orchestrates agent lifecycle and coordinates AI ↔ tool execution
 @MainActor
 final class AgentExecutionEngine: ObservableObject {
-
     // MARK: - Published Properties
 
     @Published var currentSession: ExecutionSession?
@@ -271,5 +270,18 @@ enum ExecutionError: Error, LocalizedError {
             return "Maximum execution iterations reached"
         }
     }
+}
+
+#else
+import Foundation
+import Combine
+
+@MainActor
+final class AgentExecutionEngine: ObservableObject {
+    @Published var currentSession: ExecutionSession?
+    @Published var isExecuting: Bool = false
+    @Published var executionOutput: String = ""
+    func execute(agent: Agent, userPrompt: String) async throws { }
+    func stop() async { }
 }
 #endif

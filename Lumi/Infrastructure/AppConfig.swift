@@ -61,13 +61,13 @@ enum AppConfig {
 
     // MARK: - AI Providers
 
-    static let defaultOllamaURL = "http://localhost:11434"
+    static let defaultOllamaURL = "http://127.0.0.1:11434"
 
     static let defaultModels: [AIProvider: String] = [
         .openai: "gpt-4.1",
         .anthropic: "claude-sonnet-4-6",
         .gemini: "gemini-3.1-flash",
-        .ollama: "llama3.3:latest"
+        .ollama: ""
     ]
 
     // MARK: - UI

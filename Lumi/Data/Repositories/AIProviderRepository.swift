@@ -10,18 +10,38 @@ import Foundation
 final class AIProviderRepository: AIProviderRepositoryProtocol {
 
     // MARK: - API Key Management
-    // Keys are stored in UserDefaults so no keychain prompts appear in unsigned builds.
+    // Keys are stored in UserDefaults and optionally synced via iCloud.
 
     private func udKey(_ provider: AIProvider) -> String {
         "lumiagent.apikey.\(provider.rawValue)"
     }
 
     func setAPIKey(_ key: String, for provider: AIProvider) throws {
-        UserDefaults.standard.set(key, forKey: udKey(provider))
+        let name = udKey(provider)
+        UserDefaults.standard.set(key, forKey: name)
+        
+        if DatabaseManager.shared.isCloudEnabled {
+            NSUbiquitousKeyValueStore.default.set(key, forKey: name)
+            NSUbiquitousKeyValueStore.default.synchronize()
+        }
     }
 
     func getAPIKey(for provider: AIProvider) throws -> String? {
-        let value = UserDefaults.standard.string(forKey: udKey(provider))
+        let name = udKey(provider)
+        
+        // Sync from cloud if enabled
+        if DatabaseManager.shared.isCloudEnabled {
+            NSUbiquitousKeyValueStore.default.synchronize()
+            if let cloudValue = NSUbiquitousKeyValueStore.default.string(forKey: name) {
+                // If cloud has a value, ensure local is in sync
+                if UserDefaults.standard.string(forKey: name) != cloudValue {
+                    UserDefaults.standard.set(cloudValue, forKey: name)
+                }
+                return cloudValue
+            }
+        }
+        
+        let value = UserDefaults.standard.string(forKey: name)
         return value?.isEmpty == false ? value : nil
     }
 
@@ -89,6 +109,16 @@ final class AIProviderRepository: AIProviderRepositoryProtocol {
         case .gemini:    return provider.defaultModels
         case .ollama:    return try await fetchOllamaModels()
         }
+    }
+
+    /// Attempt to launch the Ollama application on macOS
+    func launchOllama() {
+        #if os(macOS)
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        proc.arguments = ["-a", "Ollama"]
+        try? proc.run()
+        #endif
     }
 
     // =========================================================================

@@ -31,7 +31,7 @@ public struct ContentView: View {
 
             AboutView()
                 .tabItem {
-                    Label("About", systemImage: "info.circle")
+                    Label("About", systemImage: "info.circle.fill")
                 }
         }
     }
@@ -43,65 +43,95 @@ private struct AboutView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("LumiAgent iOS") {
-                    InfoRow(label: "Version", value: "1.0")
-                    InfoRow(label: "iOS Minimum", value: "iOS 17")
-                    InfoRow(label: "Build", value: buildDate)
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: "cpu.fill")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.blue.gradient)
+                            .shadow(color: .blue.opacity(0.2), radius: 10, x: 0, y: 5)
+                        
+                        VStack(spacing: 4) {
+                            Text("LumiAgent")
+                                .font(.title.bold())
+                            Text("Advanced AI Control")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                }
+                .listRowBackground(Color.clear)
+
+                Section {
+                    InfoRow(label: "Version", value: "1.0", icon: "number.circle.fill")
+                    InfoRow(label: "iOS Minimum", value: "iOS 17", icon: "iphone.circle.fill")
+                    InfoRow(label: "Last Build", value: buildDate, icon: "calendar.circle.fill")
+                } header: {
+                    Text("App Info")
                 }
 
-                Section("Device Control") {
+                Section("Capabilities") {
                     FeatureRow(icon: "sun.max.fill", color: .yellow,
                                title: "Brightness",
-                               detail: "Read and write screen brightness via UIScreen API")
+                               detail: "Precision control via UIScreen API")
                     FeatureRow(icon: "speaker.wave.2.fill", color: .blue,
                                title: "Volume",
-                               detail: "System volume via MPVolumeView (App Store safe)")
+                               detail: "System-safe hardware integration")
                     FeatureRow(icon: "music.note", color: .purple,
                                title: "Music",
-                               detail: "Control Apple Music / Now Playing via MediaPlayer")
+                               detail: "Real-time playback & artwork sync")
                     FeatureRow(icon: "cloud.sun.fill", color: .cyan,
                                title: "Weather",
-                               detail: "Real-time weather via Open-Meteo (free, no API key)")
+                               detail: "Live updates from Open-Meteo")
                     FeatureRow(icon: "message.fill", color: .green,
-                               title: "Messages & SMS",
-                               detail: "Compose via system sheet; iOS sandbox prevents reading")
+                               title: "Messages",
+                               detail: "Quick-compose system integration")
                 }
 
-                Section("Mac Remote") {
-                    FeatureRow(icon: "wifi.circle", color: .indigo,
+                Section("Remote Connection") {
+                    FeatureRow(icon: "wifi.circle.fill", color: .indigo,
                                title: "Bonjour Discovery",
-                               detail: "Auto-detects macOS LumiAgent on the same Wi-Fi")
+                               detail: "Automatic peer-to-peer Mac detection")
                     FeatureRow(icon: "desktopcomputer", color: .orange,
-                               title: "Full Mac Control",
-                               detail: "Brightness, volume, media, screenshot, keyboard, apps")
+                               title: "Command Center",
+                               detail: "Full remote control of your Mac")
                     FeatureRow(icon: "applescript", color: .teal,
-                               title: "AppleScript & Shell",
-                               detail: "Run arbitrary scripts on your Mac remotely")
+                               title: "Automation",
+                               detail: "Remote script & shell execution")
                 }
 
-                Section("Setup — Mac Remote") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("To enable Mac Remote Control:")
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("How to connect", systemImage: "lightbulb.fill")
                             .font(.headline)
-                        Text("1. Build and run LumiAgent on your Mac.")
-                        Text("2. Both devices must be on the same Wi-Fi network.")
-                        Text("3. The Mac app auto-starts a Bonjour-advertised server on port 47285.")
-                        Text("4. Tap the Mac Remote tab and select your Mac from the list.")
+                            .foregroundStyle(.yellow)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            StepRow(num: 1, text: "Run LumiAgent on your Mac")
+                            StepRow(num: 2, text: "Ensure both share the same Wi-Fi")
+                            StepRow(num: 3, text: "Discovery starts automatically")
+                            StepRow(num: 4, text: "Select your Mac from the Remote tab")
+                        }
                     }
-                    .font(.callout)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Setup Guide")
                 }
 
-                Section("Info.plist Requirements") {
-                    PlistRow(key: "NSLocalNetworkUsageDescription",
-                             note: "Required for Mac discovery")
-                    PlistRow(key: "NSBonjourServices: _lumiagent._tcp",
-                             note: "Required for Bonjour browsing")
-                    PlistRow(key: "NSLocationWhenInUseUsageDescription",
-                             note: "Required for weather location")
+                Section {
+                    PlistRow(key: "Local Network",
+                             note: "Required for Mac discovery", icon: "network")
+                    PlistRow(key: "Bonjour Services",
+                             note: "Required for protocol handshake", icon: "antenna.radiowaves.left.and.right")
+                    PlistRow(key: "Location Services",
+                             note: "Required for local weather data", icon: "location.fill")
+                } header: {
+                    Text("System Permissions")
                 }
             }
-            .navigationTitle("About LumiAgent iOS")
+            .listStyle(.insetGrouped)
+            .navigationTitle("About")
         }
     }
 
@@ -112,14 +142,37 @@ private struct AboutView: View {
     }
 }
 
+private struct StepRow: View {
+    let num: Int
+    let text: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(num)")
+                .font(.caption.bold())
+                .foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(.blue))
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct InfoRow: View {
     let label: String
     let value: String
+    let icon: String
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.blue)
+                .frame(width: 24)
             Text(label)
             Spacer()
-            Text(value).foregroundStyle(.secondary)
+            Text(value)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -130,27 +183,44 @@ private struct FeatureRow: View {
     let title: String
     let detail: String
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 28)
+        HStack(alignment: .top, spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(color.opacity(0.1))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                    .font(.subheadline)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.headline)
                 Text(detail).font(.caption).foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 }
 
 private struct PlistRow: View {
     let key: String
     let note: String
+    let icon: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(key).font(.system(.caption, design: .monospaced))
-            Text(note).font(.caption2).foregroundStyle(.secondary)
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(key)
+                    .font(.system(.subheadline, design: .monospaced))
+                    .fontWeight(.bold)
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 }

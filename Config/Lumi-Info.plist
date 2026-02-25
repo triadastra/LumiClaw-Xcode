@@ -4,7 +4,7 @@
 <dict>
     <!-- Bundle Identifier - REQUIRED for macOS system APIs -->
     <key>CFBundleIdentifier</key>
-    <string>com.lumiagent.app</string>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     
     <!-- App Info -->
     <key>CFBundleName</key>
@@ -137,9 +137,23 @@
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
 
-    <!-- Allow HTTP to local Ollama server (localhost) -->
+    <!-- iOS Launch Screen (required for full-screen rendering) -->
+    <key>UILaunchScreen</key>
+    <dict/>
+
+    <!-- iOS Supported Orientations -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <!-- Allow network access to local and remote AI servers -->
     <key>NSAppTransportSecurity</key>
     <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
         <key>NSAllowsLocalNetworking</key>
         <true/>
     </dict>

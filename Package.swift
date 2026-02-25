@@ -15,14 +15,31 @@ let package = Package(
             targets: ["LumiAgent"]
         )
     ],
-    dependencies: [],
+    dependencies: [
+        // SwiftAnthropic - Anthropic API client
+        .package(url: "https://github.com/jamesrochabrun/SwiftAnthropic.git", from: "1.0.0"),
+
+        // OpenAI - OpenAI API client
+        .package(url: "https://github.com/MacPaw/OpenAI.git", from: "0.2.0"),
+
+        // GRDB - SQLite database
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "6.0.0"),
+
+        // swift-log - Structured logging
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0")
+    ],
     targets: [
         .executableTarget(
             name: "LumiAgent",
-            dependencies: [],
+            dependencies: [
+                .product(name: "SwiftAnthropic", package: "SwiftAnthropic"),
+                .product(name: "OpenAI", package: "OpenAI"),
+                .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "Logging", package: "swift-log")
+            ],
             path: "Lumi",
             exclude: [
-                "Domain/Services/Info.plist.template",
+                "Domain/Services/Info.plist",
                 "Domain/Services/FIXING_BUNDLE_ID_CRASH.md",
                 "Domain/Services/MULTI_PLATFORM_STRATEGY.md",
                 "Domain/Services/iOS_SUPPORT.md",

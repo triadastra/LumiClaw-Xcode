@@ -1199,4 +1199,10 @@ enum ScreenControlTools {
         }
     }
 }
+#else
+import Foundation
+
+enum MCPToolHandlers {
+    // Stubs
+}
 #endif

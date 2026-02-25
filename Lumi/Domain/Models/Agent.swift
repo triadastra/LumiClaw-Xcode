@@ -130,18 +130,7 @@ enum AIProvider: String, Codable, CaseIterable {
                 "gemini-1.5-flash",
             ]
         case .ollama:
-            return [
-                "llama3.3:latest",
-                "llama3.2:latest",
-                "qwen3:latest",
-                "qwen2.5:latest",
-                "deepseek-r1:latest",
-                "mistral:latest",
-                "phi4:latest",
-                "gemma3:latest",
-                "codellama:latest",
-                "llava:latest",
-            ]
+            return []
         }
     }
 }

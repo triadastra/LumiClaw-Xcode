@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Sandbox - Enabled for security, but with necessary permissions -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    
+    <!-- Network Access - REQUIRED for OpenAI, Anthropic, Gemini, and Ollama -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+    
+    <!-- iCloud & Ubiquity Container for Syncing -->
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <string>iCloud.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudDocuments</string>
+    </array>
+    <key>com.apple.developer.ubiquity-container-identifiers</key>
+    <array>
+        <string>iCloud.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    </array>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+
+    <!-- Required for AppleScript automation and System Events -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+    
+    <!-- File Access for Agent Operations -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    
+    <!-- Required for Debugging -->
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>
