@@ -136,5 +136,12 @@
     <!-- App Icon -->
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+
+    <!-- Allow HTTP to local Ollama server (localhost) -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
 </dict>
 </plist>
