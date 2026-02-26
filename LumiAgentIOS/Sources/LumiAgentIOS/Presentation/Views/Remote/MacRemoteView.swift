@@ -2,8 +2,8 @@
 //  MacRemoteView.swift
 //  LumiAgentIOS
 //
-//  Remote control panel for a connected macOS LumiAgent instance.
-//  Covers: brightness, volume, media, screenshot, keyboard, apps, AppleScript.
+//  Remote control panel for connected local network devices.
+//  Supports: Macs (LumiAgent), ESP32s, and other IoT devices.
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ public struct MacRemoteView: View {
                     RemoteControlPanel(vm: vm)
                 }
             }
-            .navigationTitle("Mac Remote")
+            .navigationTitle("Devices")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if vm.connectedDevice != nil {
@@ -108,9 +108,9 @@ private struct EmptyDiscoveryView: View {
                     ProgressView()
                         .controlSize(.large)
                     VStack(spacing: 8) {
-                        Text("Scanning for Mac devices…")
+                        Text("Scanning for devices…")
                             .font(.headline)
-                        Text("Make sure LumiAgent is running on your Mac\nand both devices are on the same network.")
+                        Text("Searching for Macs and ESP32 relays\non your local network.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -130,13 +130,13 @@ private struct EmptyDiscoveryView: View {
             } else {
                 ZStack {
                     Circle().fill(.blue.opacity(0.1)).frame(width: 100, height: 100)
-                    Image(systemName: "desktopcomputer.and.arrow.down")
+                    Image(systemName: "antenna.radiowaves.left.and.right")
                         .font(.system(size: 48))
                         .foregroundStyle(.blue.gradient)
                 }
-                Text("No Macs Found")
+                Text("No Devices Found")
                     .font(.title3.bold())
-                Text("Start LumiAgent on your Mac and ensure\nboth devices share the same Wi-Fi.")
+                Text("Ensure your devices are powered on and\nconnected to the same Wi-Fi network.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -158,7 +158,7 @@ private struct EmptyDiscoveryView: View {
 }
 
 private struct DeviceRow: View {
-    let device: MacDevice
+    let device: LumiDevice
     let isConnecting: Bool
     let onConnect: () -> Void
 
@@ -166,16 +166,27 @@ private struct DeviceRow: View {
         Button(action: onConnect) {
             HStack(spacing: 16) {
                 ZStack {
-                    Circle().fill(.blue.opacity(0.1)).frame(width: 40, height: 40)
-                    Image(systemName: "desktopcomputer")
+                    Circle().fill(device.type.color.opacity(0.1)).frame(width: 40, height: 40)
+                    Image(systemName: device.type.systemImage)
                         .font(.headline)
-                        .foregroundStyle(.blue.gradient)
+                        .foregroundStyle(device.type.color.gradient)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(device.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text(device.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Text(device.type.rawValue.uppercased())
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(device.type.color.opacity(0.1))
+                            .foregroundStyle(device.type.color)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    
                     Text(device.connectionState.displayText)
                         .font(.subheadline)
                         .foregroundStyle(device.connectionState == .connected ? .green : .secondary)
@@ -204,19 +215,23 @@ private struct RemoteControlPanel: View {
         ScrollView {
             VStack(spacing: 24) {
                 // Connection banner
-                ConnectedBanner(deviceName: vm.connectedDevice?.name ?? "Mac",
+                ConnectedBanner(device: vm.connectedDevice,
                                 result: vm.syncStatus ?? vm.lastCommandResult,
                                 syncProgress: vm.syncProgress,
                                 isBusy: vm.isBusy || (vm.syncStatus != nil && vm.syncProgress == 0))
 
-                RemoteHealthCard(vm: vm)
-                RemoteBrightnessCard(vm: vm)
-                RemoteVolumeCard(vm: vm)
-                RemoteMediaCard(vm: vm)
-                RemoteScreenCard(vm: vm)
-                RemoteKeyboardCard(vm: vm)
-                RemoteAppsCard(vm: vm)
-                RemoteScriptCard(vm: vm)
+                if let device = vm.connectedDevice, device.type == .mac {
+                    RemoteHealthCard(vm: vm)
+                    RemoteBrightnessCard(vm: vm)
+                    RemoteVolumeCard(vm: vm)
+                    RemoteMediaCard(vm: vm)
+                    RemoteScreenCard(vm: vm)
+                    RemoteKeyboardCard(vm: vm)
+                    RemoteAppsCard(vm: vm)
+                    RemoteScriptCard(vm: vm)
+                } else if let device = vm.connectedDevice {
+                    IoTDeviceControlCard(device: device)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -241,7 +256,7 @@ private struct RemoteControlPanel: View {
 // MARK: - Connected Banner
 
 private struct ConnectedBanner: View {
-    let deviceName: String
+    let device: LumiDevice?
     let result: String?
     let syncProgress: Double
     let isBusy: Bool
@@ -251,13 +266,13 @@ private struct ConnectedBanner: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle().fill(.green.opacity(0.1)).frame(width: 40, height: 40)
-                    Image(systemName: "wifi.circle.fill")
+                    Image(systemName: device?.type.systemImage ?? "network")
                         .foregroundStyle(.green.gradient)
                         .font(.title3)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Connected to \(deviceName)")
+                    Text("Connected to \(device?.name ?? "Device")")
                         .font(.headline)
                     if let result {
                         Text(result)
@@ -275,15 +290,46 @@ private struct ConnectedBanner: View {
                 Spacer()
                 if isBusy {
                     ProgressView().controlSize(.small)
-                } else {
+                } else if device?.type == .mac {
                     Button {
-                        // Use a trigger to run autoSyncFromMac
                         NotificationCenter.default.post(name: Notification.Name("lumi.triggerSync"), object: nil)
                     } label: {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.subheadline.bold())
                             .foregroundStyle(.blue)
                     }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - IoT Device Card (Placeholder)
+
+private struct IoTDeviceControlCard: View {
+    let device: LumiDevice
+    
+    var body: some View {
+        LumiCard {
+            VStack(alignment: .leading, spacing: 16) {
+                Label("\(device.type.rawValue.uppercased()) Relay", systemImage: device.type.systemImage)
+                    .font(.headline)
+                    .foregroundStyle(device.type.color.gradient)
+                
+                Text("This \(device.type.rawValue) device is acting as a BLE relay. Commands sent from the Mac center will be distributed via this gateway.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                Divider()
+                
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Endpoint").font(.caption).foregroundStyle(.secondary)
+                        Text(device.serviceName).font(.system(.footnote, design: .monospaced))
+                    }
+                    Spacer()
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundStyle(.green)
                 }
             }
         }

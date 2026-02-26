@@ -11,7 +11,32 @@ import AppKit
 // MARK: - Settings View
 
 struct SettingsView: View {
+    #if os(macOS)
+    @State private var selectedSection: SettingsSection? = .account
+    #endif
+
     var body: some View {
+        #if os(macOS)
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selectedSection) { section in
+                Label(section.title, systemImage: section.icon)
+                    .padding(.vertical, 6)
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("Settings")
+            .frame(minWidth: 200)
+        } detail: {
+            Group {
+                if let section = selectedSection {
+                    sectionView(section)
+                } else {
+                    sectionView(.account)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 760, height: 560)
+        #else
         TabView {
             AccountTab()
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
@@ -38,10 +63,66 @@ struct SettingsView: View {
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle.fill") }
         }
-        #if os(macOS)
-        .frame(width: 560, height: 520)
         #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func sectionView(_ section: SettingsSection) -> some View {
+        switch section {
+        case .account:
+            AccountTab()
+        case .apiKeys:
+            APIKeysTab()
+        case .permissions:
+            PermissionsTab()
+        case .integrations:
+            IntegrationsTab()
+        case .hotkeys:
+            HotkeysTab()
+        case .security:
+            SecurityTab()
+        case .about:
+            AboutTab()
+        }
+    }
+
+    private enum SettingsSection: String, CaseIterable, Identifiable {
+        case account
+        case apiKeys
+        case permissions
+        case integrations
+        case hotkeys
+        case security
+        case about
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .account: return "Account"
+            case .apiKeys: return "API Keys"
+            case .permissions: return "Permissions"
+            case .integrations: return "Integrations"
+            case .hotkeys: return "Hotkeys"
+            case .security: return "Security"
+            case .about: return "About"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .account: return "person.crop.circle"
+            case .apiKeys: return "key.fill"
+            case .permissions: return "lock.shield.fill"
+            case .integrations: return "slider.horizontal.3"
+            case .hotkeys: return "keyboard"
+            case .security: return "shield.fill"
+            case .about: return "info.circle.fill"
+            }
+        }
+    }
+    #endif
 }
 
 extension Notification.Name {
@@ -777,15 +858,12 @@ struct AboutTab: View {
 
                 Divider()
 
-                // Feature grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    FeatureCell(icon: "brain", color: .green, title: "OpenAI", detail: "GPT-4o & more")
-                    FeatureCell(icon: "sparkles", color: .purple, title: "Anthropic", detail: "Claude models")
-                    FeatureCell(icon: "atom", color: .blue, title: "Gemini", detail: "Google AI models")
-                    FeatureCell(icon: "cloud.fill", color: .cyan, title: "Aliyun Qwen", detail: "Qwen series models")
-                    FeatureCell(icon: "server.rack", color: .orange, title: "Ollama", detail: "Run locally")
-                    FeatureCell(icon: "bubble.left.and.bubble.right.fill", color: .teal, title: "Agent Space", detail: "Chat & groups")
-                    FeatureCell(icon: "shield.fill", color: .indigo, title: "Security", detail: "Approval flows")
+                VStack(spacing: 6) {
+                    Text("Developer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Lumi Astria Fiona")
+                        .font(.headline)
                 }
 
                 Divider()
@@ -796,32 +874,6 @@ struct AboutTab: View {
             }
             .padding(28)
         }
-    }
-}
-
-struct FeatureCell: View {
-    let icon: String
-    let color: Color
-    let title: String
-    let detail: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(color)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.callout).fontWeight(.medium)
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 

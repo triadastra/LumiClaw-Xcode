@@ -2,15 +2,8 @@
 //  BonjourDiscovery.swift
 //  LumiAgentIOS
 //
-//  Discovers macOS LumiAgent instances on the local network
-//  via Bonjour (NWBrowser) browsing the "_lumiagent._tcp" service type.
-//
-//  The macOS side advertises using NWListener with the same service type.
-//  Both sides must be on the same Wi-Fi / LAN segment.
-//
-//  Local Network permission:
-//    Add NSLocalNetworkUsageDescription to Info.plist.
-//    Add NSBonjourServices array with "_lumiagent._tcp" to Info.plist.
+//  Discovers devices on the local network via Bonjour.
+//  Browses for multiple service types (Mac LumiAgents, ESP32s, etc).
 //
 
 import Network
@@ -19,94 +12,107 @@ import Combine
 
 // MARK: - Bonjour Discovery
 
-/// Discovers nearby macOS LumiAgent hosts on the local network via Bonjour.
+/// Discovers nearby devices on the local network via Bonjour.
 @MainActor
 public final class BonjourDiscovery: ObservableObject {
 
-    // MARK: - Constants
+    // MARK: - Configuration
 
-    public static let serviceType = "_lumiagent._tcp"
-    public static let port: UInt16 = 47285
+    private let serviceTypes: [(type: String, deviceType: LumiDeviceType)] = [
+        ("_lumiagent._tcp", .mac),
+        ("_http._tcp",      .esp32),    // Common for ESP32 web servers
+        ("_arduino._tcp",   .arduino),  // ESP32/Arduino OTA
+    ]
 
     // MARK: - Published
 
-    @Published public private(set) var discoveredDevices: [MacDevice] = []
+    @Published public private(set) var discoveredDevices: [LumiDevice] = []
     @Published public private(set) var isBrowsing: Bool = false
     @Published public private(set) var browsingError: String?
 
     // MARK: - Private
 
-    private var browser: NWBrowser?
+    private var browsers: [NWBrowser] = []
     private let queue = DispatchQueue(label: "com.lumiagent.bonjour", qos: .utility)
+    
+    // Internal dictionary to track results per service type
+    private var resultsMap: [String: [NWBrowser.Result]] = [:]
 
     public init() {}
 
     // MARK: - Browse
 
-    /// Start browsing for LumiAgent hosts. Call once; call stopBrowsing() to clean up.
     public func startBrowsing() {
         guard !isBrowsing else { return }
         browsingError = nil
         isBrowsing = true
+        browsers.removeAll()
+        resultsMap.removeAll()
 
-        let descriptor = NWBrowser.Descriptor.bonjour(type: Self.serviceType, domain: nil)
-        let params = NWParameters()
-        params.includePeerToPeer = true
+        for (service, deviceType) in serviceTypes {
+            let descriptor = NWBrowser.Descriptor.bonjour(type: service, domain: nil)
+            let params = NWParameters()
+            params.includePeerToPeer = true
 
-        let b = NWBrowser(for: descriptor, using: params)
+            let b = NWBrowser(for: descriptor, using: params)
 
-        b.browseResultsChangedHandler = { [weak self] results, changes in
-            Task { @MainActor [weak self] in
-                self?.handleBrowseResults(Array(results))
-            }
-        }
-
-        b.stateUpdateHandler = { [weak self] state in
-            Task { @MainActor [weak self] in
-                switch state {
-                case .ready:
-                    self?.browsingError = nil
-                case .failed(let error):
-                    self?.browsingError = error.localizedDescription
-                    self?.isBrowsing = false
-                case .cancelled:
-                    self?.isBrowsing = false
-                default:
-                    break
+            b.browseResultsChangedHandler = { [weak self] results, changes in
+                Task { @MainActor [weak self] in
+                    self?.resultsMap[service] = Array(results)
+                    self?.rebuildDeviceList()
                 }
             }
-        }
 
-        b.start(queue: queue)
-        self.browser = b
+            b.stateUpdateHandler = { [weak self] state in
+                Task { @MainActor [weak self] in
+                    if case .failed(let error) = state {
+                        self?.browsingError = "Error browsing \(service): \(error.localizedDescription)"
+                    }
+                }
+            }
+
+            b.start(queue: queue)
+            browsers.append(b)
+        }
     }
 
     public func stopBrowsing() {
-        browser?.cancel()
-        browser = nil
+        browsers.forEach { $0.cancel() }
+        browsers.removeAll()
         isBrowsing = false
     }
 
     // MARK: - Handle Results
 
-    private func handleBrowseResults(_ results: [NWBrowser.Result]) {
-        var updated: [MacDevice] = []
-        for result in results {
-            guard case .service(let name, _, _, _) = result.endpoint else { continue }
-            // Preserve existing connection state if device was already known.
-            let existingState = discoveredDevices.first(where: { $0.serviceName == name })?.connectionState ?? .discovered
-            let device = MacDevice(
-                name: friendlyName(from: name),
-                serviceName: name,
-                endpoint: result.endpoint,
-                connectionState: existingState
-            )
-            updated.append(device)
+    private func rebuildDeviceList() {
+        var updated: [LumiDevice] = []
+        
+        for (service, deviceType) in serviceTypes {
+            guard let results = resultsMap[service] else { continue }
+            
+            for result in results {
+                guard case .service(let name, _, _, _) = result.endpoint else { continue }
+                
+                // Avoid duplicates across different service types for the same name
+                if updated.contains(where: { $0.serviceName == name }) { continue }
+                
+                // Preserve existing connection state if device was already known.
+                let existingState = discoveredDevices.first(where: { $0.serviceName == name })?.connectionState ?? .discovered
+                
+                let device = LumiDevice(
+                    name: friendlyName(from: name),
+                    serviceName: name,
+                    endpoint: result.endpoint,
+                    type: deviceType,
+                    connectionState: existingState
+                )
+                updated.append(device)
+            }
         }
-        discoveredDevices = updated
+        
+        discoveredDevices = updated.sorted(by: { $0.name < $1.name })
     }
 
-    /// Strips ".local" suffix and other Bonjour decorations.
     private func friendlyName(from serviceName: String) -> String {
         serviceName
             .replacingOccurrences(of: ".local.", with: "")
@@ -115,6 +121,6 @@ public final class BonjourDiscovery: ObservableObject {
     }
 
     deinit {
-        browser?.cancel()
+        browsers.forEach { $0.cancel() }
     }
 }

@@ -24,7 +24,7 @@ public final class MacRemoteClient: ObservableObject {
 
     // MARK: - Published
 
-    @Published public private(set) var state: MacDevice.ConnectionState = .disconnected
+    @Published public private(set) var state: LumiDevice.ConnectionState = .disconnected
     @Published public private(set) var lastScreenshot: Data?
     @Published public private(set) var lastResult: String?
     @Published public private(set) var systemInfo: MacSystemInfo?
@@ -42,7 +42,7 @@ public final class MacRemoteClient: ObservableObject {
 
     // MARK: - Connect / Disconnect
 
-    public func connect(to device: MacDevice) async throws {
+    public func connect(to device: LumiDevice) async throws {
         guard !state.isConnected else { return }
         state = .connecting
 

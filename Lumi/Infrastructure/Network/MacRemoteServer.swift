@@ -243,10 +243,9 @@ public final class MacRemoteServer {
     private func receiveNext(on connection: NWConnection, bufferBox: BufferBox, id: UUID) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             if let data = data {
-                bufferBox.buffer.append(data)
                 Task { @MainActor [weak self] in
-                    await self?.drainBuffer(bufferBox.buffer, connection: connection, id: id)
-                    bufferBox.buffer = Data()
+                    bufferBox.buffer.append(data)
+                    await self?.drainBuffer(bufferBox: bufferBox, connection: connection, id: id)
                 }
             }
             if error != nil || isComplete { return }
@@ -258,17 +257,16 @@ public final class MacRemoteServer {
 
     // MARK: - Frame parsing
 
-    private func drainBuffer(_ data: Data, connection: NWConnection, id: UUID) async {
-        var buffer = data
-        while buffer.count >= 4 {
-            let length = buffer.prefix(4).withUnsafeBytes {
+    private func drainBuffer(bufferBox: BufferBox, connection: NWConnection, id: UUID) async {
+        while bufferBox.buffer.count >= 4 {
+            let length = bufferBox.buffer.prefix(4).withUnsafeBytes {
                 UInt32(bigEndian: $0.load(as: UInt32.self))
             }
             let totalNeeded = 4 + Int(length)
-            guard buffer.count >= totalNeeded else { break }
+            guard bufferBox.buffer.count >= totalNeeded else { break }
 
-            let payload = buffer.subdata(in: 4..<totalNeeded)
-            buffer.removeFirst(totalNeeded)
+            let payload = bufferBox.buffer.subdata(in: 4..<totalNeeded)
+            bufferBox.buffer.removeFirst(totalNeeded)
 
             if let command = try? JSONDecoder().decode(RemoteCommandMessage.self, from: payload) {
                 // If ping, we might update device name if provided
@@ -763,7 +761,7 @@ public final class MacRemoteServer {
 // MARK: - Buffer Box
 
 /// Reference type to share mutable buffer across async closures.
-private final class BufferBox {
+private final class BufferBox: @unchecked Sendable {
     var buffer = Data()
 }
 

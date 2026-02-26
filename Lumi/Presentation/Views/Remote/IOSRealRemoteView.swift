@@ -313,6 +313,9 @@ final class IOSRealRemoteViewModel: ObservableObject {
     @Published private(set) var isBrowsing = false
     @Published private(set) var connectedDevice: IOSRemoteDevice?
     @Published private(set) var isBusy = false
+    @Published private(set) var isSyncing = false
+    @Published private(set) var syncProgress: Double = 0
+    @Published private(set) var syncDetail: String?
     @Published var status: String?
     @Published var shellCommand = ""
     @Published var directHost: String = UserDefaults.standard.string(forKey: "remote.directHost") ?? ""
@@ -457,13 +460,18 @@ final class IOSRealRemoteViewModel: ObservableObject {
             "sync_api_keys.json"
         ]
 
+        isSyncing = true
+        syncProgress = 0
+        syncDetail = "Preparing Wi-Fi sync..."
         status = "Syncing..."
-        for file in files {
+        for (index, file) in files.enumerated() {
+            syncDetail = "Syncing \(friendlyFileName(file))..."
             do {
                 let response = try await client.send("get_sync_data", parameters: ["file": file], timeout: 20)
                 guard response.success,
                       let b64 = response.imageData,
                       let data = Data(base64Encoded: b64) else {
+                    syncProgress = Double(index + 1) / Double(files.count)
                     continue
                 }
 
@@ -473,15 +481,37 @@ final class IOSRealRemoteViewModel: ObservableObject {
                 case "sync_api_keys.json":
                     applyAPIKeysFromJSON(data)
                 default:
-                    try data.write(to: localBaseURL().appendingPathComponent(file), options: .atomic)
+                    let targetURL = localBaseURL().appendingPathComponent(file)
+                    try await Task.detached(priority: .utility) {
+                        try data.write(to: targetURL, options: .atomic)
+                    }.value
                 }
             } catch {
                 status = "Sync error: \(error.localizedDescription)"
             }
+            syncProgress = Double(index + 1) / Double(files.count)
         }
 
         NotificationCenter.default.post(name: Notification.Name("lumi.dataRemoteUpdated"), object: nil)
         status = "Sync complete"
+        syncDetail = "Wi-Fi sync complete"
+        isSyncing = false
+        Task {
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            syncDetail = nil
+            syncProgress = 0
+        }
+    }
+
+    private func friendlyFileName(_ file: String) -> String {
+        switch file {
+        case "agents.json": return "Agents"
+        case "conversations.json": return "Chats"
+        case "automations.json": return "Automations"
+        case "sync_settings.json": return "Settings"
+        case "sync_api_keys.json": return "API Keys"
+        default: return file
+        }
     }
 
     private func localBaseURL() -> URL {
@@ -610,6 +640,21 @@ struct IOSRealRemoteControlView: View {
                 Section("Status") {
                     Text(status)
                         .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if vm.isSyncing || vm.syncProgress > 0 || vm.syncDetail != nil {
+                Section("Wi-Fi Sync") {
+                    if let detail = vm.syncDetail {
+                        Text(detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: vm.syncProgress, total: 1.0)
+                        .tint(.blue)
+                    Text("\(Int(vm.syncProgress * 100))%")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }

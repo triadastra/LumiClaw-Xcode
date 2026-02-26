@@ -18,13 +18,13 @@ public final class MacRemoteViewModel {
 
     // MARK: - Discovery
 
-    public private(set) var discoveredDevices: [MacDevice] = []
+    public private(set) var discoveredDevices: [LumiDevice] = []
     public private(set) var isBrowsing: Bool = false
     public private(set) var browsingError: String?
 
     // MARK: - Connection
 
-    public private(set) var connectedDevice: MacDevice?
+    public private(set) var connectedDevice: LumiDevice?
     public private(set) var connectionError: String?
     public private(set) var isConnecting: Bool = false
 
@@ -121,7 +121,7 @@ public final class MacRemoteViewModel {
 
     // MARK: - Connection
 
-    public func connect(to device: MacDevice) {
+    public func connect(to device: LumiDevice) {
         guard !isConnecting else { return }
         isConnecting = true
         connectionError = nil
@@ -135,13 +135,18 @@ public final class MacRemoteViewModel {
                 lastCommandResult = "Connected to \(device.name)"
                 print("[MacRemote] Connected successfully to \(device.name)")
                 
-                // 1. Initial State Refresh
-                await refreshRemoteState()
-                
-                // 2. Peer-to-Peer Auto Sync (Pull from Mac)
-                lastCommandResult = "Synchronizing data..."
-                await autoSyncFromMac()
-                lastCommandResult = "Sync Complete"
+                // Only perform Mac-specific sync if it's a Mac
+                if device.type == .mac {
+                    // 1. Initial State Refresh
+                    await refreshRemoteState()
+                    
+                    // 2. Peer-to-Peer Auto Sync (Pull from Mac)
+                    lastCommandResult = "Synchronizing data..."
+                    await autoSyncFromMac()
+                    lastCommandResult = "Sync Complete"
+                } else {
+                    lastCommandResult = "Device connected (Non-Mac)"
+                }
                 
             } catch {
                 connectionError = error.localizedDescription
@@ -153,7 +158,7 @@ public final class MacRemoteViewModel {
     }
 
     private func autoSyncFromMac() async {
-        guard connectedDevice != nil else { return }
+        guard let device = connectedDevice, device.type == .mac else { return }
         
         let files = [
             "agents.json",
@@ -238,7 +243,7 @@ public final class MacRemoteViewModel {
 
     private func runCommand(_ block: @escaping () async throws -> RemoteCommandResponse) {
         guard client.state.isConnected else {
-            connectionError = "Not connected to a Mac."
+            connectionError = "Not connected."
             return
         }
         isBusy = true
@@ -420,7 +425,7 @@ public final class MacRemoteViewModel {
     // MARK: Health Sync
 
     public func pushHealthToMac() {
-        guard !isBusy, connectedDevice != nil else { return }
+        guard !isBusy, let device = connectedDevice, device.type == .mac else { return }
         isBusy = true
         syncStatus = "Gathering Health Data..."
         
