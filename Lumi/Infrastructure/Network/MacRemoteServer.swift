@@ -55,6 +55,8 @@ public final class MacRemoteServer {
     private let queue = DispatchQueue(label: "com.lumiagent.server", qos: .userInitiated)
     private var approvedConnections: Set<UUID> = []
     private var rejectedConnections: Set<UUID> = []
+    private let maxFramePayloadBytes = 8_388_608
+    private let maxReceiveBufferBytes = 16_777_216
 
     private init() {}
 
@@ -245,7 +247,7 @@ public final class MacRemoteServer {
             if let data = data {
                 Task { @MainActor [weak self] in
                     bufferBox.buffer.append(data)
-                    await self?.drainBuffer(bufferBox: bufferBox, connection: connection, id: id)
+                    self?.drainBuffer(bufferBox: bufferBox, connection: connection, id: id)
                 }
             }
             if error != nil || isComplete { return }
@@ -257,25 +259,49 @@ public final class MacRemoteServer {
 
     // MARK: - Frame parsing
 
-    private func drainBuffer(bufferBox: BufferBox, connection: NWConnection, id: UUID) async {
-        while bufferBox.buffer.count >= 4 {
-            let length = bufferBox.buffer.prefix(4).withUnsafeBytes {
-                UInt32(bigEndian: $0.load(as: UInt32.self))
+    private func drainBuffer(bufferBox: BufferBox, connection: NWConnection, id: UUID) {
+        if bufferBox.buffer.count > maxReceiveBufferBytes {
+            connection.cancel()
+            bufferBox.buffer.removeAll(keepingCapacity: false)
+            return
+        }
+
+        while true {
+            guard bufferBox.buffer.count >= 4 else { break }
+            let headerBytes = [UInt8](bufferBox.buffer.prefix(4))
+            guard headerBytes.count == 4 else { break }
+
+            let payloadLength =
+                (Int(headerBytes[0]) << 24) |
+                (Int(headerBytes[1]) << 16) |
+                (Int(headerBytes[2]) << 8)  |
+                Int(headerBytes[3])
+
+            if payloadLength < 0 || payloadLength > maxFramePayloadBytes {
+                connection.cancel()
+                bufferBox.buffer.removeAll(keepingCapacity: false)
+                return
             }
-            let totalNeeded = 4 + Int(length)
+
+            let totalNeeded = 4 + payloadLength
             guard bufferBox.buffer.count >= totalNeeded else { break }
 
-            let payload = bufferBox.buffer.subdata(in: 4..<totalNeeded)
+            let payload = Data(bufferBox.buffer[4..<totalNeeded])
             bufferBox.buffer.removeFirst(totalNeeded)
 
-            if let command = try? JSONDecoder().decode(RemoteCommandMessage.self, from: payload) {
-                // If ping, we might update device name if provided
-                if command.commandType == "ping", let deviceName = command.parameters["device_name"] {
-                    updateClientName(id: id, name: deviceName)
-                }
-                
-                let response = await execute(command, from: id)
-                if let frame = try? encodeResponse(response) {
+            guard let command = try? JSONDecoder().decode(RemoteCommandMessage.self, from: payload) else {
+                continue
+            }
+
+            // If ping, we might update device name if provided.
+            if command.commandType == "ping", let deviceName = command.parameters["device_name"] {
+                updateClientName(id: id, name: deviceName)
+            }
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let response = await self.execute(command, from: id)
+                if let frame = try? self.encodeResponse(response) {
                     connection.send(content: frame, completion: .contentProcessed { _ in })
                 }
             }

@@ -277,14 +277,39 @@ final class IOSMacRemoteClient: ObservableObject {
     }
 
     private func drainBuffer() {
-        while receiveBuffer.count >= 4 {
-            let length = receiveBuffer.prefix(4).withUnsafeBytes {
-                UInt32(bigEndian: $0.load(as: UInt32.self))
+        // Defensive cap so corrupted streams cannot grow unbounded.
+        if receiveBuffer.count > 16_777_216 {
+            connection?.cancel()
+            isConnected = false
+            cancelPending(with: NSError(domain: "Remote", code: 10, userInfo: [NSLocalizedDescriptionKey: "Receive buffer overflow"]))
+            receiveBuffer.removeAll(keepingCapacity: false)
+            return
+        }
+
+        while true {
+            guard receiveBuffer.count >= 4 else { break }
+            let headerBytes = [UInt8](receiveBuffer.prefix(4))
+            guard headerBytes.count == 4 else { break }
+
+            let payloadLength =
+                (Int(headerBytes[0]) << 24) |
+                (Int(headerBytes[1]) << 16) |
+                (Int(headerBytes[2]) << 8)  |
+                Int(headerBytes[3])
+
+            // Guard against malformed/corrupt frame lengths.
+            if payloadLength < 0 || payloadLength > 8_388_608 {
+                connection?.cancel()
+                isConnected = false
+                cancelPending(with: NSError(domain: "Remote", code: 9, userInfo: [NSLocalizedDescriptionKey: "Invalid frame length"]))
+                receiveBuffer.removeAll(keepingCapacity: false)
+                return
             }
-            let total = 4 + Int(length)
+
+            let total = 4 + payloadLength
             guard receiveBuffer.count >= total else { break }
 
-            let payload = receiveBuffer.subdata(in: 4..<total)
+            let payload = Data(receiveBuffer[4..<total])
             receiveBuffer.removeFirst(total)
 
             if let response = try? IOSWireFrame.decode(IOSRemoteResponse.self, from: payload) {
