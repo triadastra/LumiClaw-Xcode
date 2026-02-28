@@ -1,4 +1,4 @@
-# <img src="Lumi/Assets.xcassets/AppIcon.appiconset/mac_512.png" width="52" height="52" valign="middle"> Lumi Agent
+# <img src="Lumi/Assets.xcassets/AppIcon.appiconset/mac_512.png" width="52" height="52" valign="middle"> Lumi Agent by Lumi Astria Fiona.
 
 A macOS-first AI agent platform with an iOS companion for chat, remote control, and Apple Health sync.
 
