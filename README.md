@@ -1,95 +1,158 @@
-<table>
-  <tr>
-    <td><img src="https://github.com/user-attachments/assets/fd72077f-0790-47cf-a22b-a7345ee53806" width="64" height="64"></td>
-    <td><h1>𝙻𝚞𝚖𝚒 𝙰𝚐𝚎𝚗𝚝</h1></td>
-  </tr>
-</table>
+# <img src="Lumi/Assets.xcassets/AppIcon.appiconset/mac_512.png" width="52" height="52" valign="middle"> Lumi Agent
 
-A macOS-first AI agent platform with tool execution, desktop automation, and an iOS companion app.
+A macOS-first AI agent platform with an iOS companion for chat, remote control, and Apple Health sync.
 
-Agents can read and write files, run shell commands, search the web, control the desktop, execute code, and chain tool calls autonomously. The iOS app pairs over Wi-Fi or USB to provide a mobile chat interface and remote Mac control.
-<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 44 24 PM" src="https://github.com/user-attachments/assets/6a6784ee-ad2e-4597-b888-6582e93155d9" />
+Lumi can run tool-using agents that read/write files, execute shell commands, browse the web, control desktop input, and automate workflows. The iOS app pairs with your Mac over local network and now includes a dedicated Health tab with local analysis + JSON export.
+
+![Lumi main screenshot](https://github.com/user-attachments/assets/6a6784ee-ad2e-4597-b888-6582e93155d9)
 
 ---
 
-## Features
+## What’s New
 
-**Agent execution**
-- Create and configure multiple agents backed by any supported AI provider
-- Streaming agentic loop: AI plans → calls tools → feeds results back → repeats until done
-- 60+ built-in tools across files, shell, web, git, clipboard, screen control, memory, and system
-- Per-agent security policy: risk thresholds, command blacklist, sudo toggle, auto-approve level
-<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 45 56 PM" src="https://github.com/user-attachments/assets/7aeb50c5-e4dc-43a0-85d9-ddeaa6ffb25f" />
-
-**macOS integration**
-- Global hotkeys for a command palette and quick-action panel, available in any app
-- Text-assist hotkeys to rewrite, extend, or grammar-correct selected text in any app
-- macOS Services integration (right-click menu)
-- Automation rules triggered by app launch, schedule, Bluetooth, screen unlock, and more
-- Optional desktop control: mouse, keyboard, screenshots, AppleScript
-<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 48 47 PM" src="https://github.com/user-attachments/assets/3641b2f7-1e5b-4121-bbec-3e5b66eaa7d7" />
-
-
-**iOS companion**
-- Full chat interface with streaming responses
-- Bonjour discovery and TCP pairing with the Mac
-- USB device detection via IOKit
-- Remote Mac control: screenshots, shell commands, volume
-- Syncs agents, conversations, automations, and API keys from Mac
-<img width="1112" height="764" alt="Screenshot 2026-02-25 at 10 47 09 PM" src="https://github.com/user-attachments/assets/e465de38-bc70-48b0-8486-4a71276042ae" />
-
-**Voice**
-- Push-to-talk transcription via OpenAI Whisper
-- Realtime voice activity detection (WebSocket VAD)
-- Text-to-speech replies via OpenAI TTS
-
-**AI providers**
-- OpenAI (GPT-4o, o3, etc.)
-- Anthropic (Claude 3/4 series)
-- Google Gemini
-- Alibaba Qwen
-- Ollama (local models, auto-fetches model list)
+- Added **iOS Health tab** (view + analyze local Apple Health metrics on iPhone)
+- Added **local health JSON export** on iOS (`Documents/LumiAgent/health_data_*.json`)
+- Added/confirmed sync of **`health_data.json`** between iOS and macOS
+- Improved sync conflict checks for object-based payloads using `updatedAt`
+- macOS Health view reads synced iPhone data and supports AI insight generation
 
 ---
 
-## Safety Notice
+## Product Map
 
-Depending on enabled tools and security settings, an agent can read and write files, run shell commands, control UI elements, and execute AppleScript. Review **Settings → Security** and your per-agent security policy before enabling elevated capabilities. Restrict tools on a per-agent basis using the `enabledTools` list in agent configuration.
+| Area | macOS | iOS |
+|---|---|---|
+| Agents + Tool Execution | Full runtime (60+ tools) | Chat client (provider calls run on-device) |
+| Desktop Control | Yes | Remote command client |
+| Automation | Yes | No |
+| Pairing/Remote | Bonjour TCP server + approval flow | Bonjour browser + remote panel |
+| Health | Health dashboard (synced iPhone data + local fallback) | Health tab with local HealthKit analysis + JSON export |
+| Voice | Mic + Whisper + TTS + realtime VAD | Mic + Whisper + TTS |
+
+---
+
+## Architecture
+
+![Lumi architecture diagram](docs/images/architecture-overview.svg)
+
+---
+
+## Apple Health Sync Flow
+
+![Apple Health sync flow](docs/images/health-sync-flow.svg)
+
+---
+
+## Screens
+
+### Agent Workspace (macOS)
+![Agent workspace screenshot](https://github.com/user-attachments/assets/7aeb50c5-e4dc-43a0-85d9-ddeaa6ffb25f)
+
+### Desktop/Automation UX (macOS)
+![Desktop and automation screenshot](https://github.com/user-attachments/assets/3641b2f7-1e5b-4121-bbec-3e5b66eaa7d7)
+
+### iOS Companion
+![iOS companion screenshot](https://github.com/user-attachments/assets/e465de38-bc70-48b0-8486-4a71276042ae)
+
+---
+
+## Core Capabilities
+
+### 1) Agent Runtime
+- Multi-agent setup with per-agent model/provider config
+- Streaming agent loop (plan -> tool calls -> results -> continue)
+- Tool registry with file, shell, web, git, clipboard, and system tools
+- Security policy controls by agent (risk limits, tool allowlists, command restrictions)
+
+### 2) macOS Integration
+- Global hotkeys + floating command UI
+- Text assist shortcuts (rewrite, grammar fix, instruction mode)
+- macOS Services integration
+- Automation triggers (schedule, app events, device conditions)
+
+### 3) iOS Companion
+- Agents, Chat, Remote, Health, Settings tabs
+- Local-network pairing with Mac approval workflow
+- Remote actions: sync, screenshot, shell command, volume control
+- Continuous sync loop with conflict-aware timestamps
+
+### 4) Health & Wellness
+- iOS: local HealthKit fetch for activity, heart, body, sleep, workouts, vitals
+- iOS: per-category local AI analysis and JSON export
+- Sync file: `health_data.json`
+- macOS: synced health dashboard + AI coaching summaries
+
+### 5) Voice
+- Push-to-talk transcription
+- Realtime VAD pipeline on macOS
+- Text-to-speech responses
+
+---
+
+## Safety Model
+
+Lumi can perform high-impact actions depending on enabled tools and security settings.
+
+Before enabling advanced capabilities, review:
+- `Settings -> Security`
+- Per-agent `enabledTools`
+- Shell/desktop-control policies
+
+Use least privilege for each agent profile.
 
 ---
 
 ## Requirements
 
-- macOS 15.0 or later (primary platform)
-- iOS 18.0 or later (companion app)
+- macOS 15.0+ (primary runtime)
+- iOS 18.0+ (companion app)
 - Swift 6.2 toolchain
-- API key for at least one cloud provider, or Ollama running locally
+- API key for at least one cloud model provider, or local Ollama
 
 ---
 
-## Build and Run (Native Without Xcode - macOS Only)
+## Quick Start
 
+### Option A: Native macOS run script
 ```bash
 git clone https://github.com/triadastra/Lumi.git
 cd Lumi
+./run_app.sh
+```
+
+### Option B: Open in Xcode (iOS + macOS)
+```bash
+git clone https://github.com/triadastra/Lumi.git
+cd Lumi
+open Lumi.xcodeproj
+```
+Then run the macOS target and (optionally) the iOS companion target.
+
+### Option C: Unsigned DMG build
+```bash
 ./build_unsigned_dmg.sh
 ```
 
-## Build and Distribute (iOS and macOS)
+---
 
-```bash
-git clone https://github.com/triadastra/Lumi.git
-```
-Then open this project with Xcode > Run. Pair up with your other devices.
+## First-Run Checklist
+
+1. Add API keys in `Settings -> API Keys`
+2. Grant required macOS permissions in `Settings -> Permissions`
+3. Create your first agent and send a message in Agent Space
+4. On iOS, pair in `Remote` tab and approve from Mac `Devices`
+5. If using Health sync, enable `Settings -> Sync Apple Health` on iOS
 
 ---
 
-## First Run
+## Health Setup (End-to-End)
 
-1. Open **Settings → API Keys** and enter keys for the providers you want to use
-2. Open **Settings → Permissions** and click **Enable Full Access (Guided)** to complete the required macOS privacy grants (Accessibility, Screen Recording, Automation)
-3. Create your first agent with a name, provider, model, and system prompt
-4. Open **Agent Space**, start a conversation, and send a message
+1. On iPhone: open Lumi `Settings` and enable `Sync Apple Health`
+2. Grant HealthKit read permissions when prompted
+3. Open iOS `Health` tab and tap `Refresh`
+4. (Optional) Tap `Export JSON` to save a local copy to Files
+5. Connect to Mac in `Remote` tab and run `Sync Now`
+6. On macOS: open `Health` sidebar to review synced metrics and AI insights
 
 ---
 
@@ -105,26 +168,24 @@ Then open this project with Xcode > Run. Pair up with your other devices.
 | `⌘,` | Open Settings |
 | `⌘N` | New agent |
 
-Hotkeys work system-wide. The command palette and quick-action panel are floating overlays that remain accessible in any app.
-
 ---
 
 ## Project Structure
 
-```
+```text
 Lumi/
-├── App/              # Entry point, AppState, hotkeys, automation engine
-├── Domain/           # Models, repository protocols, tool registry, agent execution
-├── Data/             # AI provider repository, agent repository, database manager
-├── Infrastructure/   # Audio, network (Bonjour server, USB), screen capture, security
-└── Presentation/     # SwiftUI views organized by feature
+├── App/              # App entry, AppState, hotkeys, automation
+├── Domain/           # Models, protocols, tool registry, execution engine
+├── Data/             # Repositories, provider integration, iOS health sync DTOs
+├── Infrastructure/   # Database, network, security, audio, screen capture
+└── Presentation/     # SwiftUI views (Agents, Chat, Remote, Health, Settings)
 ```
 
 ---
 
 ## Documentation
 
-Full documentation is in the [wiki](wiki/).
+Project docs are in [wiki/](wiki/):
 
 - [Getting Started](wiki/Getting-Started.md)
 - [Architecture](wiki/Architecture.md)
@@ -139,20 +200,15 @@ Full documentation is in the [wiki](wiki/).
 - [Security and Permissions](wiki/Security-and-Permissions.md)
 - [Building and Deployment](wiki/Building-and-Deployment.md)
 - [Troubleshooting](wiki/Troubleshooting.md)
+- [Function Reference](wiki/Function-Reference.md)
+- [Function Updates](wiki/Function-Updates.md)
 
 ---
 
 ## Contributing
 
-PRs are welcome. Keep changes focused and include clear validation steps.
+PRs are welcome. Keep changes scoped and include validation steps.
 
 ## License
 
 See [LICENSE](LICENSE).
-
----
-
-## Other Functions and Snapshots
-![Uploading Screenshot 2026-02-28 at 11.14.26 PM.png…]()
-^ Syncing Apple Health on macOS
-
