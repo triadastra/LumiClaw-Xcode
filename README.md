@@ -1,9 +1,10 @@
-# <img src="Lumi/Assets.xcassets/AppIcon.appiconset/mac_512.png" width="52" height="52" valign="middle"> Lumi Agent by Lumi Astria Fiona.
+# <img src="Lumi/Assets.xcassets/AppIcon.appiconset/mac_512.png" width="52" height="52" valign="middle"> Lumi Agent
 
 A macOS-first AI agent platform with an iOS companion for chat, remote control, and Apple Health sync.
 
 Lumi can run tool-using agents that read/write files, execute shell commands, browse the web, control desktop input, and automate workflows. The iOS app pairs with your Mac over local network and now includes a dedicated Health tab with local analysis + JSON export.
 
+^ Developed by Lumi Astria Fiona under TriadAstria™ Student Association.
 ![Lumi main screenshot](https://github.com/user-attachments/assets/6a6784ee-ad2e-4597-b888-6582e93155d9)
 
 ---
