@@ -41,6 +41,7 @@ Lumi can run tool-using agents that read/write files, execute shell commands, br
 ## Apple Health Sync Flow
 
 ![Apple Health sync flow](docs/images/health-sync-flow.svg)
+<img width="1112" height="888" alt="Screenshot 2026-02-28 at 11 14 26 PM" src="https://github.com/user-attachments/assets/051de0af-b152-4bd6-bf17-c2e344181bcf" />
 
 ---
 
