@@ -19,3 +19,5 @@ Lumi Agent is a macOS-first AI agent platform. Agents can chat, call tools, and 
 | [Security and Permissions](Security-and-Permissions) | Risk levels, security policy, macOS entitlements, sandbox |
 | [Building and Deployment](Building-and-Deployment) | SPM build, app bundle, scripts, signing |
 | [Troubleshooting](Troubleshooting) | Common issues and fixes |
+| [Function Reference](Function-Reference) | Auto-generated index of every function signature in the repo |
+| [Function Updates](Function-Updates) | Function-level diff summary for current working-tree updates |

@@ -5,6 +5,7 @@
 **Getting started**
 - [Getting Started](Getting-Started)
 - [Building and Deployment](Building-and-Deployment)
+- [Running and Distribution](Running-and-Distribution)
 
 **Core concepts**
 - [Architecture](Architecture)
@@ -20,5 +21,7 @@
 - [iOS Companion](iOS-Companion)
 
 **Reference**
+- [Function Reference](Function-Reference)
+- [Function Updates](Function-Updates)
 - [Security and Permissions](Security-and-Permissions)
 - [Troubleshooting](Troubleshooting)
