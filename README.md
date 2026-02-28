@@ -149,3 +149,10 @@ PRs are welcome. Keep changes focused and include clear validation steps.
 ## License
 
 See [LICENSE](LICENSE).
+
+---
+
+## Other Functions and Snapshots
+![Uploading Screenshot 2026-02-28 at 11.14.26 PM.png…]()
+^ Syncing Apple Health on macOS
+
